@@ -1,0 +1,86 @@
+site_name: pydapter
+site_description: Tiny trait + adapter toolkit for pydantic models
+site_url: https://agenticsorg.github.io/pydapter/
+repo_url: https://github.com/agenticsorg/pydapter
+repo_name: agenticsorg/pydapter
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            show_source: true
+            show_category_heading: true
+            show_submodules: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting_started.md
+  - Guides:
+      - Error Handling: error_handling.md
+      - Testing: testing.md
+  - Adapters:
+      - PostgreSQL: postgres_adapter.md
+      - Neo4j: neo4j_adapter.md
+      - Qdrant: qdrant_adapter.md
+  - API Reference:
+      - Core: api/core.md
+      - Adapters: api/adapters.md
+      - Extras: api/extras.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/agenticsorg/pydapter
