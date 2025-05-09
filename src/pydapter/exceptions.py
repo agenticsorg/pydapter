@@ -30,6 +30,25 @@ class ValidationError(AdapterError):
         self.data = data
 
 
+class TypeConversionError(ValidationError):
+    """Exception raised when type conversion fails."""
+
+    def __init__(
+        self,
+        message: str,
+        source_type: Optional[type] = None,
+        target_type: Optional[type] = None,
+        field_name: Optional[str] = None,
+        model_name: Optional[str] = None,
+        **context: Any,
+    ):
+        super().__init__(message, **context)
+        self.source_type = source_type
+        self.target_type = target_type
+        self.field_name = field_name
+        self.model_name = model_name
+
+
 class ParseError(AdapterError):
     """Exception raised when data parsing fails."""
 

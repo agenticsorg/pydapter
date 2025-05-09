@@ -16,6 +16,7 @@ from sqlalchemy import (
     inspect,
 )
 
+from pydapter.exceptions import TypeConversionError
 from pydapter.model_adapters.sql_model import SQLModelAdapter
 
 
@@ -121,7 +122,7 @@ def test_pydantic_to_sql_unsupported_type():
         id: int | None = None
         complex_val: complex  # Not supported
 
-    with pytest.raises(TypeError, match="Unsupported type"):
+    with pytest.raises(TypeConversionError, match="Unsupported type"):
         SQLModelAdapter.pydantic_model_to_sql(UnsupportedSchema)
 
 
@@ -214,5 +215,5 @@ def test_sql_to_pydantic_unsupported_type():
     with unittest.mock.patch(
         "sqlalchemy.inspect", return_value=mock_inspect(UnsupportedSQL)
     ):
-        with pytest.raises(TypeError, match="Unsupported SQL type"):
+        with pytest.raises(TypeConversionError, match="Unsupported SQL type"):
             SQLModelAdapter.sql_model_to_pydantic(UnsupportedSQL)
