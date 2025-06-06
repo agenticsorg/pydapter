@@ -6,7 +6,6 @@ from typing import Any, ClassVar, Optional
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from pydapter.exceptions import AdapterNotFoundError, ConfigurationError
 from pydapter.migrations.exceptions import (
     MigrationCreationError,

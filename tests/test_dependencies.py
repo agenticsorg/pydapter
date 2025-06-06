@@ -2,7 +2,6 @@ import importlib
 from importlib.util import find_spec
 
 import pytest
-
 from pydapter.utils.dependencies import (
     check_dependency,
     check_migrations_dependencies,

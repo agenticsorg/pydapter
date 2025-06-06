@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.core import Adaptable
 from pydapter.extras.pandas_ import DataFrameAdapter
 

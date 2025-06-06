@@ -4,7 +4,6 @@ Integration tests for Neo4j adapter using TestContainers.
 
 import pytest
 from neo4j import GraphDatabase
-
 from pydapter.exceptions import ConnectionError, ResourceError
 from pydapter.extras.neo4j_ import Neo4jAdapter
 

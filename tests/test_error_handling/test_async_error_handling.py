@@ -6,7 +6,6 @@ import asyncio
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.async_core import AsyncAdaptable
 from pydapter.exceptions import (
     AdapterNotFoundError,

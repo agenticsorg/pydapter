@@ -9,7 +9,6 @@ import json
 import pytest
 import toml
 from pydantic import BaseModel
-
 from pydapter.adapters import CsvAdapter, JsonAdapter, TomlAdapter
 from pydapter.core import Adaptable, AdapterRegistry
 

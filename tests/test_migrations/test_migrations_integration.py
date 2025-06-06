@@ -9,12 +9,11 @@ from typing import ClassVar, Optional
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base
-
 from pydapter.migrations.base import SyncMigrationAdapter
 from pydapter.migrations.registry import MigrationRegistry
 from pydapter.migrations.sql.alembic_adapter import AlembicAdapter
+from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy.orm import declarative_base
 
 
 class TestMigrationsIntegration:

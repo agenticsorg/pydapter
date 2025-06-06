@@ -4,7 +4,6 @@ import re
 
 import pytest
 from pydantic import ValidationError
-
 from pydapter.fields import (
     FieldTemplate,
     ValidationPatterns,

@@ -6,10 +6,9 @@ from pydantic import BaseModel, Field
 # Try to import pgvector, skip tests if not available
 try:
     from pgvector.sqlalchemy import Vector
-    from sqlalchemy import Column, Integer, String
-
     from pydapter.model_adapters.pg_vector_model import PGVectorModelAdapter
     from pydapter.model_adapters.sql_model import create_base
+    from sqlalchemy import Column, Integer, String
 
     VECTOR_AVAILABLE = True
 except ImportError:

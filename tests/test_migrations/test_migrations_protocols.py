@@ -5,7 +5,6 @@ Tests for migration protocol interfaces in pydapter.migrations.protocols.
 from typing import ClassVar, Optional
 
 import pytest
-
 from pydapter.migrations.protocols import AsyncMigrationProtocol, MigrationProtocol
 
 

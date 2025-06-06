@@ -14,7 +14,6 @@ from pydapter.fields.types import create_model
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
-
     from pydapter.fields.template import FieldTemplate
 
 

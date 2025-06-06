@@ -6,7 +6,6 @@ from unittest.mock import Mock
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.core import Adaptable
 from pydapter.exceptions import ConnectionError, QueryError, ResourceError
 from pydapter.exceptions import ValidationError as AdapterValidationError

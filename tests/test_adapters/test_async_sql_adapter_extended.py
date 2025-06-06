@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.core import Adaptable
 from pydapter.extras.async_sql_ import AsyncSQLAdapter
 

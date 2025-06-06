@@ -1,6 +1,5 @@
-from sqlalchemy import Integer, String
-
 from pydapter.model_adapters.type_registry import TypeRegistry
+from sqlalchemy import Integer, String
 
 
 def test_register_and_get_sql_type():

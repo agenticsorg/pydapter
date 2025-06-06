@@ -3,6 +3,9 @@ from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+from pydapter.exceptions import TypeConversionError
+from pydapter.model_adapters.sql_model import SQLModelAdapter, create_base
+from pydapter.model_adapters.type_registry import TypeRegistry
 from sqlalchemy import (
     Boolean,
     Column,
@@ -14,10 +17,6 @@ from sqlalchemy import (
     String,
     Time,
 )
-
-from pydapter.exceptions import TypeConversionError
-from pydapter.model_adapters.sql_model import SQLModelAdapter, create_base
-from pydapter.model_adapters.type_registry import TypeRegistry
 
 
 class UserWithForwardRef(BaseModel):

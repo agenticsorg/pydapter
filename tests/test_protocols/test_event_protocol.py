@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.async_core import AsyncAdapter
 from pydapter.protocols.event import Event, as_event
 from pydapter.protocols.invokable import ExecutionStatus

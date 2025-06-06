@@ -5,7 +5,6 @@ Property-based tests for pydapter adapters.
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from pydantic import BaseModel
-
 from pydapter.adapters import CsvAdapter, JsonAdapter, TomlAdapter
 from pydapter.core import Adaptable
 

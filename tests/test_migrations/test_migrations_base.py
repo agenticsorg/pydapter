@@ -6,7 +6,6 @@ import os
 from typing import Any, ClassVar, Optional
 
 import pytest
-
 from pydapter.migrations.base import (
     AsyncMigrationAdapter,
     BaseMigrationAdapter,

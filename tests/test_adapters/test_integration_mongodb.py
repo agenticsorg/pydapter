@@ -3,10 +3,9 @@ Integration tests for MongoDB adapter using TestContainers.
 """
 
 import pytest
-from pymongo import MongoClient
-
 from pydapter.exceptions import ConnectionError, ResourceError
 from pydapter.extras.mongo_ import MongoAdapter
+from pymongo import MongoClient
 
 
 def is_docker_available():

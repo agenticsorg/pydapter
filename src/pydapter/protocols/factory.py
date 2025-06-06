@@ -3,7 +3,6 @@
 from typing import Any, Union
 
 from pydantic import BaseModel
-
 from pydapter.protocols.constants import ProtocolType
 from pydapter.protocols.registry import get_mixin_registry
 

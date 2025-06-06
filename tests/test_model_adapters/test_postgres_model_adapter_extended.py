@@ -4,6 +4,9 @@ from typing import Any, Optional
 
 import pytest
 from pydantic import BaseModel, Field
+from pydapter.exceptions import TypeConversionError
+from pydapter.model_adapters.postgres_model import PostgresModelAdapter
+from pydapter.model_adapters.type_registry import TypeRegistry
 from sqlalchemy import String, inspect
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
@@ -14,10 +17,6 @@ from sqlalchemy.dialects.postgresql import (
     JSONB,
     TSRANGE,
 )
-
-from pydapter.exceptions import TypeConversionError
-from pydapter.model_adapters.postgres_model import PostgresModelAdapter
-from pydapter.model_adapters.type_registry import TypeRegistry
 
 
 class NetworkConfig(BaseModel):

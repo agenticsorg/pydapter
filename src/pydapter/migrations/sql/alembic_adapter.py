@@ -8,8 +8,6 @@ from typing import Any, ClassVar, Optional
 
 import sqlalchemy as sa
 from alembic import command, config
-from sqlalchemy.ext.asyncio import create_async_engine
-
 from pydapter.migrations.base import AsyncMigrationAdapter, SyncMigrationAdapter
 from pydapter.migrations.exceptions import (
     MigrationCreationError,
@@ -18,6 +16,7 @@ from pydapter.migrations.exceptions import (
     MigrationInitError,
     MigrationUpgradeError,
 )
+from sqlalchemy.ext.asyncio import create_async_engine
 
 
 class AlembicAdapter(SyncMigrationAdapter):
@@ -365,13 +364,11 @@ datefmt = %H:%M:%S
             # Get all revisions
             revisions = []
             for revision in script.walk_revisions():
-                revisions.append(
-                    {
-                        "revision": revision.revision,
-                        "message": revision.doc,
-                        "created": None,  # Alembic doesn't store creation dates
-                    }
-                )
+                revisions.append({
+                    "revision": revision.revision,
+                    "message": revision.doc,
+                    "created": None,  # Alembic doesn't store creation dates
+                })
 
             return revisions
         except Exception as exc:

@@ -5,7 +5,6 @@ Integration tests for WeaviateAdapter and AsyncWeaviateAdapter using TestContain
 import importlib.util
 
 import pytest
-
 from pydapter.exceptions import ResourceError
 from pydapter.extras.async_weaviate_ import AsyncWeaviateAdapter
 from pydapter.extras.weaviate_ import WeaviateAdapter
@@ -160,7 +159,6 @@ class TestWeaviateIntegration:
         """Test WeaviateAdapter with a single object."""
         # Get the model class
         from pydantic import BaseModel
-
         from pydapter.core import Adaptable
 
         class VectorModel(Adaptable, BaseModel):
@@ -207,7 +205,6 @@ class TestWeaviateIntegration:
         """Test batch operations with WeaviateAdapter."""
         # Get the model class
         from pydantic import BaseModel
-
         from pydapter.core import Adaptable
 
         class VectorModel(Adaptable, BaseModel):
@@ -262,7 +259,6 @@ class TestWeaviateIntegration:
         """Test handling of resource not found errors."""
         # Get the model class
         from pydantic import BaseModel
-
         from pydapter.core import Adaptable
 
         class VectorModel(Adaptable, BaseModel):
@@ -293,7 +289,6 @@ class TestWeaviateIntegration:
         """Test handling of empty result sets with many=True."""
         # Get the model class
         from pydantic import BaseModel
-
         from pydapter.core import Adaptable
 
         class VectorModel(Adaptable, BaseModel):

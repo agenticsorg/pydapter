@@ -4,8 +4,6 @@ import datetime
 
 import pytest
 from pydantic import BaseModel, HttpUrl
-from sqlalchemy import inspect
-
 from pydapter.fields import (
     CREATED_AT_TZ_TEMPLATE,
     EMAIL_TEMPLATE,
@@ -17,6 +15,7 @@ from pydapter.fields import (
 )
 from pydapter.model_adapters.postgres_model import PostgresModelAdapter
 from pydapter.model_adapters.sql_model import SQLModelAdapter
+from sqlalchemy import inspect
 
 
 class TestJsonbSupport:

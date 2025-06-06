@@ -1,7 +1,6 @@
 """Tests for protocol field families functionality."""
 
 import pytest
-
 from pydapter.fields import (
     ID_TEMPLATE,
     NAME_TEMPLATE,

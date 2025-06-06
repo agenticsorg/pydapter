@@ -3,7 +3,6 @@ Tests for protocol compliance of adapter implementations.
 """
 
 import pytest
-
 from pydapter.adapters import CsvAdapter, JsonAdapter, TomlAdapter
 from pydapter.async_core import AsyncAdaptable, AsyncAdapterRegistry
 from pydapter.core import Adaptable, AdapterRegistry

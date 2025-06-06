@@ -5,7 +5,6 @@ Tests for migration registry in pydapter.migrations.registry.
 from typing import Any, ClassVar, Optional
 
 import pytest
-
 from pydapter.exceptions import AdapterNotFoundError, ConfigurationError
 from pydapter.migrations.protocols import MigrationProtocol
 from pydapter.migrations.registry import MigrationRegistry

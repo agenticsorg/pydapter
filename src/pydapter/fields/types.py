@@ -9,7 +9,6 @@ from pydantic import Field as PydanticField
 from pydantic import create_model as create_pydantic_model
 from pydantic import field_validator
 from pydantic.fields import FieldInfo
-
 from pydapter.exceptions import ValidationError
 
 __all__ = (
@@ -134,9 +133,9 @@ class Field:
             "alias": self.alias,
             **self.extra_info,
         }
-        field_obj: FieldInfo = PydanticField(
-            **{k: v for k, v in params.items() if v is not Undefined}
-        )
+        field_obj: FieldInfo = PydanticField(**{
+            k: v for k, v in params.items() if v is not Undefined
+        })
         field_obj.annotation = (
             self.annotation if self.annotation is not Undefined else None
         )  # type: ignore[assignment]

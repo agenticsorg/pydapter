@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
-
 from pydapter.fields.types import Embedding
 
 if TYPE_CHECKING:

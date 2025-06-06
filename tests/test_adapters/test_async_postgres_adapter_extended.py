@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.core import Adaptable
 from pydapter.extras.async_postgres_ import AsyncPostgresAdapter
 

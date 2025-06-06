@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Callable, get_args, get_origin
 
 from pydantic import BaseModel
+from pydapter.exceptions import TypeConversionError
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
@@ -20,8 +21,6 @@ from sqlalchemy.dialects.postgresql import (
 # Note: BOX, LINE, POINT are not directly available in SQLAlchemy
 # We'll use String as a fallback for geometric types
 from sqlalchemy.orm import DeclarativeBase
-
-from pydapter.exceptions import TypeConversionError
 
 from .sql_model import SQLModelAdapter, create_base
 from .type_registry import TypeRegistry

@@ -2,10 +2,9 @@ from typing import Optional
 
 import pytest
 from pydantic import BaseModel, Field
-from sqlalchemy import Integer, inspect
-
 from pydapter.exceptions import TypeConversionError
 from pydapter.model_adapters.sql_model import SQLModelAdapter
+from sqlalchemy import Integer, inspect
 
 
 def test_register_type_mapping():

@@ -4,7 +4,6 @@ Integration tests for PostgreSQL adapter using TestContainers.
 
 import pytest
 import sqlalchemy as sa
-
 from pydapter.exceptions import ConnectionError
 from pydapter.extras.postgres_ import PostgresAdapter
 

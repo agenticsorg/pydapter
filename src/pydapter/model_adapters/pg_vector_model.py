@@ -1,20 +1,55 @@
 # pg_vector_model.py
 from __future__ import annotations
 
-from typing import Annotated, Any, Optional, cast
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    cast,
+    get_args,
+    get_origin,
+)
 
 from pgvector.sqlalchemy import Vector
 from pydantic import BaseModel, Field, create_model
-from sqlalchemy import Index, func, inspect, select
+from pydapter.exceptions import ConfigurationError, TypeConversionError, ValidationError
+from sqlalchemy import Column, Index, func, inspect, select
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Session
 
-from pydapter.exceptions import ConfigurationError, TypeConversionError, ValidationError
-
-from .sql_model import SQLModelAdapter
+from .sql_model import SQLModelAdapter, create_base
+from .type_registry import TypeRegistry
 
 
 class PGVectorModelAdapter(SQLModelAdapter):
-    """Adapter that adds pgvector (list[float]) round-trip support with optimizations."""
+    """Adapter that adds pgvector (list[float]) and JSONB support with optimizations."""
+
+    def __init__(self):
+        super().__init__()
+        # Register dict types for JSONB
+        self._register_json_types()
+
+    @classmethod
+    def _register_json_types(cls):
+        """Register dict and Dict types for JSONB support."""
+        # Register plain dict
+        cls.register_type_mapping(
+            python_type=dict,
+            sql_type_factory=lambda: JSONB(),
+            python_to_sql=lambda x: x,
+            sql_to_python=lambda x: x,
+        )
+
+        # Register Dict[str, Any]
+        cls.register_type_mapping(
+            python_type=Dict[str, Any],
+            sql_type_factory=lambda: JSONB(),
+            python_to_sql=lambda x: x,
+            sql_to_python=lambda x: x,
+        )
 
     # override / extend mappings ------------------------------------------------
     @classmethod
@@ -280,3 +315,148 @@ class PGVectorModelAdapter(SQLModelAdapter):
 
         # Commit the transaction
         session.commit()
+
+    @classmethod
+    def pydantic_model_to_sql(
+        cls,
+        model: type[BaseModel],
+        *,
+        table_name: str | None = None,
+        pk_field: str = "id",
+        schema: str | None = None,
+    ) -> type[DeclarativeBase]:
+        """
+        Generate a SQLAlchemy model from a Pydantic model.
+
+        This method extends the base SQLModelAdapter to also handle:
+        - list[float] fields with vector_dim metadata as pgvector Vector columns
+        - dict and Dict[str, Any] types as JSONB
+        - List[str] and other list types as PostgreSQL arrays
+        """
+
+        # First, register JSON types if not already registered
+        cls._register_json_types()
+
+        ns: dict[str, Any] = {"__tablename__": table_name or model.__name__.lower()}
+
+        # Add schema if provided
+        if schema:
+            ns["__table_args__"] = {"schema": schema}
+
+        # Process each field
+        for name, info in model.model_fields.items():
+            anno = info.annotation
+            origin = get_origin(anno) or anno
+
+            # Check for nullable
+            is_nullable = cls.is_optional(anno) or not info.is_required()
+            if is_nullable:
+                args = get_args(anno)
+                non_none_args = [arg for arg in args if arg is not type(None)]
+                if len(non_none_args) == 1:
+                    inner = non_none_args[0]
+                    anno, origin = inner, get_origin(inner) or inner
+
+            # Handle vector fields (list[float])
+            if origin in (list, List) and get_args(anno):
+                item_type = get_args(anno)[0]
+                if item_type is float:
+                    # Check for vector_dim metadata
+                    vector_dim = None
+                    if info.json_schema_extra:
+                        vector_dim = info.json_schema_extra.get("vector_dim")
+
+                    if vector_dim:
+                        # Create Vector column
+                        kwargs = {"nullable": is_nullable}
+                        default = (
+                            info.default
+                            if info.default is not None
+                            else info.default_factory
+                        )
+                        if default is not None:
+                            kwargs["default"] = default
+
+                        ns[name] = Column(Vector(vector_dim), **kwargs)
+                        continue
+
+            # Handle dict types as JSONB
+            if origin is dict or origin is Dict:
+                kwargs = {"nullable": is_nullable}
+                default = (
+                    info.default if info.default is not None else info.default_factory
+                )
+                if default is not None:
+                    kwargs["default"] = default
+
+                ns[name] = Column(JSONB(), **kwargs)
+                continue
+
+            # Handle Literal types as String
+            if origin is Literal:
+                kwargs = {"nullable": is_nullable}
+                default = (
+                    info.default if info.default is not None else info.default_factory
+                )
+                if default is not None:
+                    kwargs["default"] = default
+
+                # Get the max length from literal values
+                literal_values = get_args(anno)
+                max_length = (
+                    max(len(str(v)) for v in literal_values) if literal_values else 50
+                )
+
+                ns[name] = Column(TypeRegistry._PY_TO_SQL[str](), **kwargs)
+                continue
+
+            # Handle List[str] and other list types as arrays
+            if origin in (list, List):
+                args = get_args(anno)
+                if args:
+                    item_type = args[0]
+                else:
+                    # Default to string for untyped lists
+                    item_type = str
+
+                # Get SQL type for item
+                sql_type_factory = TypeRegistry.get_sql_type(item_type)
+                if sql_type_factory:
+                    kwargs = {"nullable": is_nullable}
+                    default = (
+                        info.default
+                        if info.default is not None
+                        else info.default_factory
+                    )
+                    if default is not None:
+                        kwargs["default"] = default
+
+                    ns[name] = Column(ARRAY(sql_type_factory()), **kwargs)
+                    continue
+
+            # Default handling for other types
+            col_type_factory = TypeRegistry.get_sql_type(origin)
+            if col_type_factory is None:
+                raise TypeConversionError(
+                    f"Unsupported type {origin!r}",
+                    source_type=origin,
+                    target_type=None,
+                    field_name=name,
+                    model_name=model.__name__,
+                )
+
+            kwargs: dict[str, Any] = {
+                "nullable": is_nullable,
+            }
+            default = info.default if info.default is not None else info.default_factory
+            if default is not None:
+                kwargs["default"] = default
+
+            if name == pk_field:
+                kwargs.update(primary_key=True, autoincrement=True)
+
+            ns[name] = Column(col_type_factory(), **kwargs)
+
+        # Create the SQL model class
+        Base = create_base()
+        return type(f"{model.__name__}SQL", (Base,), ns)

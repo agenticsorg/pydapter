@@ -7,10 +7,9 @@ import shutil
 import tempfile
 
 import pytest
+from pydapter.migrations.sql.alembic_adapter import AlembicAdapter
 from sqlalchemy import Column, Integer, MetaData, String, create_engine
 from sqlalchemy.orm import declarative_base
-
-from pydapter.migrations.sql.alembic_adapter import AlembicAdapter
 
 
 class TestAlembicMigrationAdapter:

@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from neo4j.exceptions import AuthError, CypherSyntaxError, ServiceUnavailable
 from pydantic import BaseModel
-
 from pydapter.async_core import AsyncAdaptable
 from pydapter.exceptions import ConnectionError, QueryError, ResourceError
 from pydapter.exceptions import ValidationError as AdapterValidationError

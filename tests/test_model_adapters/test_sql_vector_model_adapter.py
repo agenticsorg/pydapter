@@ -5,7 +5,6 @@ from sqlalchemy import inspect
 # Try to import pgvector, skip tests if not available
 try:
     from pgvector.sqlalchemy import Vector
-
     from pydapter.model_adapters.sql_vector_model import SQLVectorModelAdapter
 
     VECTOR_AVAILABLE = True

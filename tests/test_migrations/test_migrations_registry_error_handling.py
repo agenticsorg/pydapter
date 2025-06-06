@@ -6,7 +6,6 @@ from typing import Any, ClassVar, Optional
 from unittest.mock import patch
 
 import pytest
-
 from pydapter.migrations.exceptions import (
     MigrationCreationError,
     MigrationDowngradeError,

@@ -5,7 +5,6 @@ from typing import Annotated, Union
 import pytest
 from pydantic import Field as PydanticField
 from pydantic import ValidationError
-
 from pydapter.fields import (
     CREATED_AT_TEMPLATE,
     CREATED_AT_TZ_TEMPLATE,

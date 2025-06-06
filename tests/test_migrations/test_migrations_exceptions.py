@@ -3,7 +3,6 @@ Tests for migration exceptions in pydapter.migrations.exceptions.
 """
 
 import pytest
-
 from pydapter.migrations.exceptions import (
     MigrationCreationError,
     MigrationDowngradeError,

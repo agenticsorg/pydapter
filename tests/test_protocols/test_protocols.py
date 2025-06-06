@@ -15,7 +15,6 @@ from uuid import UUID, uuid4
 
 import pytest
 from pydantic import BaseModel, Field
-
 from pydapter.fields import Embedding, Execution
 from pydapter.protocols.embeddable import Embeddable, EmbeddableMixin
 from pydapter.protocols.event import Event
@@ -255,9 +254,9 @@ class TestEmbeddableProtocol:
         assert result == [0.1, 0.2, 0.3]
 
         # Test with dict containing embedding
-        result = ConcreteEmbeddable.parse_embedding_response(
-            {"embedding": [0.1, 0.2, 0.3]}
-        )
+        result = ConcreteEmbeddable.parse_embedding_response({
+            "embedding": [0.1, 0.2, 0.3]
+        })
         assert result == [0.1, 0.2, 0.3]
 
 

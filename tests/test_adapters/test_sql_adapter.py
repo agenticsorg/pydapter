@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.core import Adaptable
 from pydapter.extras.sql_ import SQLAdapter
 

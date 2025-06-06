@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
-
 from pydapter.exceptions import ValidationError
 from pydapter.fields.types import Field, Undefined
 

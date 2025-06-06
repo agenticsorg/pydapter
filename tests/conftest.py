@@ -1,5 +1,4 @@
 import pytest
-
 from pydapter import Adaptable
 from pydapter.adapters import CsvAdapter, JsonAdapter, TomlAdapter
 from pydapter.async_core import AsyncAdaptable
@@ -53,9 +52,11 @@ def mongo_url():
     from testcontainers.mongodb import MongoDbContainer
 
     # Use MongoDB container with authentication
-    with MongoDbContainer("mongo:6.0").with_env(
-        "MONGO_INITDB_ROOT_USERNAME", "test"
-    ).with_env("MONGO_INITDB_ROOT_PASSWORD", "test") as mongo:
+    with (
+        MongoDbContainer("mongo:6.0")
+        .with_env("MONGO_INITDB_ROOT_USERNAME", "test")
+        .with_env("MONGO_INITDB_ROOT_PASSWORD", "test") as mongo
+    ):
         yield f"mongodb://test:test@{mongo.get_container_host_ip()}:{mongo.get_exposed_port(27017)}"
 
 
@@ -137,7 +138,6 @@ def neo4j_auth():
 @pytest.fixture
 def async_model_factory():
     from pydantic import BaseModel
-
     from pydapter.extras.async_mongo_ import AsyncMongoAdapter
     from pydapter.extras.async_postgres_ import AsyncPostgresAdapter
     from pydapter.extras.async_qdrant_ import AsyncQdrantAdapter
@@ -165,7 +165,6 @@ def async_sample(async_model_factory):
 def sync_model_factory():
     """Factory for creating test models with adapters registered."""
     from pydantic import BaseModel
-
     from pydapter.core import Adaptable
 
     def create_model(**kw):
@@ -183,7 +182,6 @@ def sync_model_factory():
 def sync_vector_model_factory():
     """Factory for creating test models with vector field."""
     from pydantic import BaseModel
-
     from pydapter.core import Adaptable
 
     def create_model(**kw):

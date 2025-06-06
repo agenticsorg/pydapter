@@ -2,6 +2,7 @@ import ipaddress
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field
+from pydapter.model_adapters.postgres_model import PostgresModelAdapter
 from sqlalchemy import String, inspect
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
@@ -12,8 +13,6 @@ from sqlalchemy.dialects.postgresql import (
     JSONB,
     TSRANGE,
 )
-
-from pydapter.model_adapters.postgres_model import PostgresModelAdapter
 
 
 class AddressModel(BaseModel):
@@ -218,9 +217,11 @@ def test_handle_jsonb():
     assert result["zip_code"] == "12345"
 
     # Test with a dictionary
-    dict_result = converter(
-        {"street": "456 Oak St", "city": "Othertown", "zip_code": "67890"}
-    )
+    dict_result = converter({
+        "street": "456 Oak St",
+        "city": "Othertown",
+        "zip_code": "67890",
+    })
 
     assert isinstance(dict_result, dict)
     assert dict_result["street"] == "456 Oak St"

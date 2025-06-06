@@ -93,13 +93,11 @@ _VERSION_TEMPLATE = FieldTemplate(
 FieldFamilies.SOFT_DELETE["is_deleted"] = _BOOLEAN_TEMPLATE
 FieldFamilies.SOFT_DELETE_TZ["is_deleted"] = _BOOLEAN_TEMPLATE
 
-FieldFamilies.AUDIT.update(
-    {
-        "created_by": _UUID_NULLABLE_TEMPLATE,
-        "updated_by": _UUID_NULLABLE_TEMPLATE,
-        "version": _VERSION_TEMPLATE,
-    }
-)
+FieldFamilies.AUDIT.update({
+    "created_by": _UUID_NULLABLE_TEMPLATE,
+    "updated_by": _UUID_NULLABLE_TEMPLATE,
+    "version": _VERSION_TEMPLATE,
+})
 
 
 def create_field_dict(

@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.core import Adaptable
 from pydapter.extras.neo4j_ import Neo4jAdapter
 

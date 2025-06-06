@@ -4,6 +4,8 @@ from uuid import UUID
 
 import pytest
 from pydantic import BaseModel
+from pydapter.exceptions import TypeConversionError
+from pydapter.model_adapters.sql_model import SQLModelAdapter
 from sqlalchemy import (
     Boolean,
     Date,
@@ -15,9 +17,6 @@ from sqlalchemy import (
     Time,
     inspect,
 )
-
-from pydapter.exceptions import TypeConversionError
-from pydapter.model_adapters.sql_model import SQLModelAdapter
 
 
 # ---------- Sample Pydantic models for testing -------------------------------------------

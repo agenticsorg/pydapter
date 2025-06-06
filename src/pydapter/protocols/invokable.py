@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from pydantic import PrivateAttr
-
 from pydapter.fields.execution import Execution, ExecutionStatus
 
 from .utils import validate_model_to_dict

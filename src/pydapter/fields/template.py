@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Annotated, Any, TypeVar, Union, get_args, get_
 
 from pydantic import Field as PydanticField
 from pydantic.fields import FieldInfo
-
 from pydapter.fields.types import Field, Undefined, UndefinedType
 
 if TYPE_CHECKING:
@@ -375,10 +374,12 @@ class FieldTemplate:
         if get_origin(self.base_type) is Annotated:
             # Preserve annotations but update the base type
             args = get_args(self.base_type)
-            # For Python 3.10 compatibility, we need to handle this differently
             if len(args) > 1:
-                # Keep the original Annotated type but with nullable base
-                nullable_type = self.base_type
+                # Extract the base type and annotations
+                base = args[0]
+                annotations = args[1:]
+                # Create new Annotated with nullable base type
+                nullable_type = Annotated[Union[base, None], *annotations]
             else:
                 nullable_type = Annotated[Union[args[0], None]]
 

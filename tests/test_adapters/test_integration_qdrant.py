@@ -4,11 +4,10 @@ Integration tests for Qdrant adapter using TestContainers.
 
 import numpy as np
 import pytest
-from qdrant_client import QdrantClient
-from qdrant_client.http.exceptions import UnexpectedResponse
-
 from pydapter.exceptions import ConnectionError, ResourceError
 from pydapter.extras.qdrant_ import QdrantAdapter
+from qdrant_client import QdrantClient
+from qdrant_client.http.exceptions import UnexpectedResponse
 
 
 def is_docker_available():
@@ -250,7 +249,6 @@ class TestQdrantIntegration:
         """Test Qdrant adapter with random vectors."""
         # Create a custom model class with embedding field
         from pydantic import BaseModel
-
         from pydapter.core import Adaptable
 
         class VectorModel(Adaptable, BaseModel):

@@ -7,7 +7,6 @@ from typing import Annotated, Any
 from pydantic import AwareDatetime, EmailStr
 from pydantic import Field as PydanticField
 from pydantic import HttpUrl, NaiveDatetime, confloat, conint, constr
-
 from pydapter.fields.template import FieldTemplate
 
 __all__ = (

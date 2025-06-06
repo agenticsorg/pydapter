@@ -17,6 +17,7 @@ from typing import (
 from uuid import UUID
 
 from pydantic import BaseModel, Field, create_model
+from pydapter.exceptions import TypeConversionError
 from sqlalchemy import (
     Boolean,
     Column,
@@ -32,8 +33,6 @@ from sqlalchemy import (
     inspect,
 )
 from sqlalchemy.orm import DeclarativeBase, mapped_column, relationship
-
-from pydapter.exceptions import TypeConversionError
 
 from .type_registry import TypeRegistry
 

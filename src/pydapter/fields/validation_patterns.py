@@ -11,7 +11,6 @@ from re import Pattern
 from typing import Any, Callable
 
 from pydantic import confloat, conint, constr
-
 from pydapter.fields.template import FieldTemplate
 
 __all__ = (

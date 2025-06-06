@@ -1,9 +1,10 @@
 import orjson
-
 from pydapter.fields.types import Field
+from pydapter.fields.template import FieldTemplate
 
 __all__ = (
     "EMBEDDING",
+    "EMBEDDING_TEMPLATE",
     "validate_embedding",
 )
 
@@ -29,6 +30,18 @@ def embedding_validator(cls, v):
     return validate_embedding(v)
 
 
+# Create as template first for reusability
+EMBEDDING_TEMPLATE = FieldTemplate(
+    base_type=list[float],
+    default_factory=list,
+    title="Embedding",
+    description="List of floats representing the embedding vector.",
+    validator=embedding_validator,
+    immutable=True,
+    json_schema_extra={"vector_dim": 1536},  # Default OpenAI dimension
+)
+
+# Legacy Field for backward compatibility
 EMBEDDING = Field(
     name="embedding",
     annotation=list[float],

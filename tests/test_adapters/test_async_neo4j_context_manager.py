@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from neo4j.exceptions import CypherSyntaxError
-
 from pydapter.exceptions import QueryError
 from pydapter.extras.async_neo4j_ import AsyncNeo4jAdapter
 

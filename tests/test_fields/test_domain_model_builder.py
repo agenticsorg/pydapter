@@ -1,7 +1,6 @@
 """Tests for DomainModelBuilder functionality."""
 
 import pytest
-
 from pydapter.fields import ID_TEMPLATE, DomainModelBuilder, FieldTemplate
 
 

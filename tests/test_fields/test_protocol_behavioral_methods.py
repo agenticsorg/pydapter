@@ -4,7 +4,6 @@ import datetime
 
 import pytest
 from pydantic import BaseModel
-
 from pydapter.fields import FieldTemplate, create_protocol_model
 from pydapter.protocols import (
     CryptographicalMixin,
