@@ -23,11 +23,29 @@ class AdapterError(Exception):
 
 
 class ValidationError(AdapterError):
-    """Exception raised when data validation fails."""
+    """Raised when field validation fails.
 
-    def __init__(self, message: str, data: Optional[Any] = None, **context: Any):
+    Attributes:
+        field_name: Name of the field that failed validation (if available)
+        value: The value that failed validation
+        validator_name: Name or description of the validator that failed
+    """
+
+    __slots__ = ("field_name", "validator_name", "value")
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        field_name: Optional[str] = None,
+        value: Any = None,
+        validator_name: Optional[str] = None,
+        **context: Any,
+    ):
         super().__init__(message, **context)
-        self.data = data
+        self.field_name = field_name
+        self.value = value
+        self.validator_name = validator_name
 
 
 class TypeConversionError(ValidationError):

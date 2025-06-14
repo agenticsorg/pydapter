@@ -7,8 +7,6 @@ entity tracking, soft deletion, and audit trails.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from pydapter.fields.common_templates import (
     CREATED_AT_TEMPLATE,
     CREATED_AT_TZ_TEMPLATE,
@@ -19,10 +17,6 @@ from pydapter.fields.common_templates import (
     UPDATED_AT_TZ_TEMPLATE,
 )
 from pydapter.fields.template import FieldTemplate
-
-if TYPE_CHECKING:
-    from pydantic import Field
-
 
 __all__ = (
     "FieldFamilies",
@@ -80,7 +74,12 @@ _BOOLEAN_TEMPLATE = FieldTemplate(
     default=False,
 )
 
-_UUID_NULLABLE_TEMPLATE = ID_TEMPLATE.as_nullable()
+_UUID_NULLABLE_TEMPLATE = FieldTemplate(
+    base_type=ID_TEMPLATE.base_type,
+    nullable=True,
+    default=None,
+    description="Unique identifier (nullable)",
+)
 
 _VERSION_TEMPLATE = FieldTemplate(
     base_type=int,
@@ -104,11 +103,11 @@ FieldFamilies.AUDIT.update(
 
 def create_field_dict(
     *families: dict[str, FieldTemplate], **overrides: FieldTemplate
-) -> dict[str, Field]:
+) -> dict[str, FieldTemplate]:
     """Create a field dictionary by merging multiple field families.
 
     This function takes multiple field families and merges them into a single
-    dictionary of Pydantic fields. Later families override fields from earlier
+    dictionary of field templates. Later families override fields from earlier
     ones if there are naming conflicts.
 
     Args:
@@ -116,7 +115,7 @@ def create_field_dict(
         **overrides: Individual field templates to add or override
 
     Returns:
-        Dict[str, Field]: A dictionary mapping field names to Pydantic Field instances
+        Dict[str, FieldTemplate]: A dictionary mapping field names to FieldTemplate instances
 
     Example:
         ```python
@@ -132,17 +131,17 @@ def create_field_dict(
         ```
     """
 
-    result: dict[str, Field] = {}
+    result: dict[str, FieldTemplate] = {}
 
     # Process field families in order
     for family in families:
         for field_name, template in family.items():
             if template is not None:
-                result[field_name] = template.create_field(field_name)
+                result[field_name] = template
 
     # Process individual overrides
     for field_name, template in overrides.items():
         if template is not None:
-            result[field_name] = template.create_field(field_name)
+            result[field_name] = template
 
     return result

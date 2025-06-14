@@ -13,7 +13,7 @@ from pydantic.fields import FieldInfo
 from pydapter.exceptions import ValidationError
 
 __all__ = (
-    "Field",
+    "Field",  # Deprecated - use FieldTemplate instead
     "Undefined",
     "UndefinedType",
     "create_model",
@@ -49,7 +49,11 @@ Undefined = UndefinedType()
 
 
 class Field:
-    """Field descriptor for Pydantic models."""
+    """Field descriptor for Pydantic models.
+
+    .. deprecated:: 2.0.0
+        Use :class:`FieldTemplate` instead. This class is kept for backwards compatibility.
+    """
 
     __slots__ = (
         "name",
@@ -267,7 +271,7 @@ def create_model(
     config: dict[str, Any] | None = None,
     doc: str | None = None,
     base: type[BaseModel] | None = None,
-    fields: list[Field] | dict[str, Field | Any] | None = None,
+    fields: list[Field] | dict[str, Any] | None = None,
     frozen: bool = False,
 ):
     """Create a new pydantic model basing on fields and base class.
@@ -277,7 +281,7 @@ def create_model(
         config (dict[str, Any], optional): Configuration dictionary for the model.
         doc (str, optional): Documentation string for the model.
         base (type[BaseModel], optional): Base class to inherit from.
-        fields (list[Field] | dict[str, Field | FieldTemplate], optional): List of fields or dict of field names to Field/FieldTemplate instances.
+        fields (list[Field] | dict[str, FieldTemplate | Field | Any], optional): List of fields or dict of field names to Field/FieldTemplate instances.
         frozen (bool, optional): Whether the model should be immutable (frozen).
     """
     if config and base:
@@ -286,45 +290,105 @@ def create_model(
             details={"model_name": model_name},
         )
 
-    _use_fields: list[Field] = [] if isinstance(fields, dict) else fields or []
+    # Import here to avoid circular imports
+    from pydapter.fields.template import FieldTemplate
+
+    # Convert fields to proper format for Pydantic
+    use_fields: dict[str, tuple[type, FieldInfo]] = {}
+    validators: dict[str, Callable[..., Any]] = {}
 
     if isinstance(fields, dict):
-        # Import here to avoid circular imports
-        from pydapter.fields.template import FieldTemplate
-
         for name, field_or_template in fields.items():
             if isinstance(field_or_template, FieldTemplate):
-                # Create Field from FieldTemplate
-                field = field_or_template.create_field(name)
+                # Convert FieldTemplate to Pydantic field
+                annotation = field_or_template.annotated()
+
+                # Extract metadata for FieldInfo
+                field_kwargs = {}
+                has_default = False
+                is_nullable = field_or_template.is_nullable
+
+                # Get valid Pydantic Field parameters
+                from pydapter.fields.template import _get_pydantic_field_params
+
+                pydantic_field_params = _get_pydantic_field_params()
+
+                for meta in field_or_template.metadata:
+                    if meta.key == "default":
+                        # Handle callable defaults as default_factory
+                        if callable(meta.value):
+                            field_kwargs["default_factory"] = meta.value
+                        else:
+                            field_kwargs["default"] = meta.value
+                        has_default = True
+                    elif meta.key == "validator":
+                        # Add validator separately
+                        validator_name = f"validate_{name}"
+                        validators[validator_name] = field_validator(
+                            name, mode="before"
+                        )(meta.value)
+                    elif meta.key in pydantic_field_params:
+                        # Pass through standard Pydantic field attributes
+                        field_kwargs[meta.key] = meta.value
+                    elif meta.key in {"nullable", "listable"}:
+                        # These are FieldTemplate markers, don't pass to FieldInfo
+                        pass
+                    else:
+                        # Any other metadata can be stored in json_schema_extra
+                        if "json_schema_extra" not in field_kwargs:
+                            field_kwargs["json_schema_extra"] = {}
+                        field_kwargs["json_schema_extra"][meta.key] = meta.value
+
+                # If nullable but no default specified, set default to None
+                # But don't set if default_factory is already present
+                if (
+                    is_nullable
+                    and not has_default
+                    and "default_factory" not in field_kwargs
+                ):
+                    field_kwargs["default"] = None
+
+                field_info = PydanticField(**field_kwargs)
+                use_fields[name] = (annotation, field_info)
+            elif isinstance(field_or_template, Field):
+                # Handle legacy Field objects
+                field = field_or_template
+                if hasattr(field, "name") and name != field.name:
+                    field = field.copy(name=name)
+                use_fields[name] = (field.annotation, field.field_info)
+                # Add validators from Field
+                if field.validator is not Undefined and callable(field.validator):
+                    kwargs = (
+                        {}
+                        if field.validator_kwargs is Undefined
+                        else field.validator_kwargs
+                    )
+                    validator_name = f"validate_{name}"
+                    validators[validator_name] = field_validator(name, **kwargs)(
+                        field.validator
+                    )
             elif isinstance(field_or_template, dict):
                 # Handle dict-style field definition
                 field_dict = field_or_template.copy()
                 field_dict["name"] = name
                 field = Field(**field_dict)
-            else:
-                # Assume it's a Field
-                field = field_or_template
-                if hasattr(field, "name") and name != field.name:
-                    field = field.copy(name=name)
-            _use_fields.append(field)
+                use_fields[name] = (field.annotation, field.field_info)
+    elif isinstance(fields, list):
+        # Handle list of Field objects
+        for field in fields:
+            use_fields[field.name] = (field.annotation, field.field_info)
+            if field.validator is not Undefined and callable(field.validator):
+                kwargs = (
+                    {}
+                    if field.validator_kwargs is Undefined
+                    else field.validator_kwargs
+                )
+                validator_name = f"validate_{field.name}"
+                validators[validator_name] = field_validator(field.name, **kwargs)(
+                    field.validator
+                )
 
-    use_fields: dict[str, tuple[type, FieldInfo]] = {
-        field.name: (field.annotation, field.field_info) for field in _use_fields
-    }
-
-    # Collect validators for fields that have them
-    validators: dict[str, Callable[..., Any]] = {}
-    for field in _use_fields:
-        if field.validator is not Undefined and callable(field.validator):
-            kwargs = (
-                {} if field.validator_kwargs is Undefined else field.validator_kwargs
-            )
-            validator_name = f"validate_{field.name}"
-            validators[validator_name] = field_validator(field.name, **kwargs)(
-                field.validator
-            )
-
-    # Create the base model with validators included - handle type issues by filtering valid fields
+    # Filter valid fields
     valid_fields = {
         name: (annotation, field_info)
         for name, (annotation, field_info) in use_fields.items()

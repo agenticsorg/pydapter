@@ -76,11 +76,9 @@ class TestCreateFieldDict:
         assert "created_at" in fields
         assert "updated_at" in fields
 
-        # Fields should be Field instances
-        from pydapter.fields import Field
-
+        # Fields should be FieldTemplate instances
         for field in fields.values():
-            assert isinstance(field, Field)
+            assert isinstance(field, FieldTemplate)
 
     def test_multiple_families(self):
         """Test merging multiple field families."""
@@ -97,18 +95,18 @@ class TestCreateFieldDict:
         """Test that later families override earlier ones."""
         # Create two families with overlapping fields
         family1 = {
-            "name": FieldTemplate(base_type=str, description="Name from family1"),
-            "value": FieldTemplate(base_type=int, default=1),
+            "name": FieldTemplate(base_type=str).with_description("Name from family1"),
+            "value": FieldTemplate(base_type=int).with_default(1),
         }
         family2 = {
-            "name": FieldTemplate(base_type=str, description="Name from family2"),
-            "other": FieldTemplate(base_type=str, default="test"),
+            "name": FieldTemplate(base_type=str).with_description("Name from family2"),
+            "other": FieldTemplate(base_type=str).with_default("test"),
         }
 
         fields = create_field_dict(family1, family2)
 
         # family2's name should override family1's
-        assert fields["name"].description == "Name from family2"
+        assert fields["name"].extract_metadata("description") == "Name from family2"
         assert "value" in fields
         assert "other" in fields
 
@@ -123,7 +121,7 @@ class TestCreateFieldDict:
         )
 
         # Custom ID should override the one from ENTITY
-        assert fields["id"].description == "Custom string ID"
+        assert fields["id"].extract_metadata("description") == "Custom string ID"
         assert "custom_field" in fields
 
     def test_none_templates_ignored(self):
@@ -147,7 +145,7 @@ class TestCreateFieldDict:
             FieldFamilies.ENTITY,
             FieldFamilies.AUDIT,
             FieldFamilies.SOFT_DELETE,
-            name=FieldTemplate(base_type=str, default="unnamed"),
+            name=FieldTemplate(base_type=str).with_default("unnamed"),
         )
 
         # Create the model

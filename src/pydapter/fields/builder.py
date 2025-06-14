@@ -45,7 +45,7 @@ class DomainModelBuilder:
             DomainModelBuilder("VersionedModel")
             .with_entity_fields()
             .with_audit_fields()
-            .add_field("data", FieldTemplate(base_type=dict, default_factory=dict))
+            .add_field("data", FieldTemplate(base_type=dict, default=dict))
             .build()
         )
         ```
@@ -215,6 +215,7 @@ class DomainModelBuilder:
             Dictionary mapping field names to their descriptions
         """
         return {
-            name: template.description or f"{template.base_type} field"
+            name: template.extract_metadata("description")
+            or f"{template.base_type} field"
             for name, template in self._fields.items()
         }

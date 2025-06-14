@@ -2,7 +2,7 @@ import contextlib
 from datetime import datetime, timezone
 
 from pydapter.exceptions import ValidationError
-from pydapter.fields.types import Field
+from pydapter.fields.template import FieldTemplate
 
 __all__ = (
     "DATETIME",
@@ -33,26 +33,24 @@ def datetime_serializer(v: datetime, /) -> str:
     return v.isoformat()
 
 
-def datetime_validator(cls, v):
+def datetime_validator(v):
     return validate_datetime(v)
 
 
-def nullable_datetime_validator(cls, v):
+def nullable_datetime_validator(v):
     return validate_datetime(v, nullable=True)
 
 
-DATETIME = Field(
-    name="datetime_field",
-    annotation=datetime,
-    default_factory=lambda: datetime.now(tz=timezone.utc),
+DATETIME = FieldTemplate(
+    base_type=datetime,
+    default=lambda: datetime.now(tz=timezone.utc),  # Will be treated as default_factory
     validator=datetime_validator,
-    immutable=True,
+    description="Datetime field with timezone awareness",
 )
 
-DATETIME_NULLABLE = Field(
-    name="nullable_datetime_field",
-    annotation=type(None),  # Simplified to avoid UnionType issues
-    default=None,
+DATETIME_NULLABLE = FieldTemplate(
+    base_type=datetime,
+    nullable=True,
     validator=nullable_datetime_validator,
-    immutable=True,
+    description="Nullable datetime field",
 )

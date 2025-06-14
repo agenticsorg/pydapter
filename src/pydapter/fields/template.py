@@ -1,460 +1,500 @@
+"""Field template implementation for compositional field definitions.
+
+This module provides FieldTemplate, a frozen dataclass that enables
+compositional field definitions with lazy materialization and aggressive caching.
+"""
+
 from __future__ import annotations
 
+import os
+import threading
+from collections import OrderedDict
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Annotated, Any, TypeVar, Union, get_args, get_origin
+from dataclasses import dataclass, field
+from typing import Annotated, Any
 
-from pydantic import Field as PydanticField
-from pydantic.fields import FieldInfo
+from typing_extensions import Self, override
 
-from pydapter.fields.types import Field, Undefined, UndefinedType
+from pydapter.exceptions import ValidationError
 
-if TYPE_CHECKING:
-    from typing_extensions import Self
-
-T = TypeVar("T")
-
-__all__ = ("FieldTemplate",)
+# Cache of valid Pydantic Field parameters
+_PYDANTIC_FIELD_PARAMS: set[str] | None = None
 
 
+def _get_pydantic_field_params() -> set[str]:
+    """Get valid Pydantic Field parameters (cached)."""
+    global _PYDANTIC_FIELD_PARAMS
+    if _PYDANTIC_FIELD_PARAMS is None:
+        import inspect
+
+        from pydantic import Field as PydanticField
+
+        _PYDANTIC_FIELD_PARAMS = set(inspect.signature(PydanticField).parameters.keys())
+        _PYDANTIC_FIELD_PARAMS.discard("kwargs")
+    return _PYDANTIC_FIELD_PARAMS
+
+
+# Global cache for annotated types with bounded size
+_MAX_CACHE_SIZE = int(os.environ.get("LIONAGI_FIELD_CACHE_SIZE", "10000"))
+_annotated_cache: OrderedDict[tuple[type, tuple[FieldMeta, ...]], type] = OrderedDict()
+_cache_lock = threading.RLock()  # Thread-safe access to cache
+
+# Configurable limit on metadata items to prevent explosion
+METADATA_LIMIT = int(os.environ.get("LIONAGI_FIELD_META_LIMIT", "10"))
+
+
+@dataclass(slots=True, frozen=True)
+class FieldMeta:
+    """Immutable metadata container for field templates."""
+
+    key: str
+    value: Any
+
+    @override
+    def __hash__(self) -> int:
+        """Make metadata hashable for caching.
+
+        Note: For callables, we hash by id to maintain identity semantics.
+        """
+        # For callables, use their id
+        if callable(self.value):
+            return hash((self.key, id(self.value)))
+        # For other values, try to hash directly
+        try:
+            return hash((self.key, self.value))
+        except TypeError:
+            # Fallback for unhashable types
+            return hash((self.key, str(self.value)))
+
+    @override
+    def __eq__(self, other: object) -> bool:
+        """Compare metadata for equality.
+
+        For callables, compare by id to increase cache hits when the same
+        validator instance is reused. For other values, use standard equality.
+        """
+        if not isinstance(other, FieldMeta):
+            return NotImplemented
+
+        if self.key != other.key:
+            return False
+
+        # For callables, compare by identity
+        if callable(self.value) and callable(other.value):
+            return id(self.value) == id(other.value)
+
+        # For other values, use standard equality
+        return bool(self.value == other.value)
+
+
+@dataclass(slots=True, frozen=True, init=False)
 class FieldTemplate:
-    """Template for creating reusable field definitions with naming flexibility.
+    """Field template for compositional field definitions.
 
-    FieldTemplate provides a way to define field configurations that can be reused
-    across multiple models with different field names. It supports Pydantic v2
-    Annotated types and provides compositional methods for creating nullable and
-    listable variations.
+    This class provides a way to define field templates that can be composed
+    and materialized lazily with aggressive caching for performance.
 
-    Examples:
-        >>> # Create a reusable email field template
-        >>> email_template = FieldTemplate(
-        ...     base_type=EmailStr,
-        ...     description="Email address",
-        ...     title="Email"
-        ... )
-        >>>
-        >>> # Use the template in different models with different names
-        >>> user_email = email_template.create_field("user_email")
-        >>> contact_email = email_template.create_field("contact_email")
-        >>>
-        >>> # Create variations
-        >>> optional_email = email_template.as_nullable()
-        >>> email_list = email_template.as_listable()
+    Attributes:
+        base_type: The base Python type for this field
+        metadata: Tuple of metadata to attach via Annotated
+
+    Environment Variables:
+        LIONAGI_FIELD_CACHE_SIZE: Maximum number of cached annotated types (default: 10000)
+        LIONAGI_FIELD_META_LIMIT: Maximum metadata items per template (default: 10)
+
+    Example:
+        >>> tmpl = FieldTemplate(str)
+        >>> nullable_tmpl = tmpl.as_nullable()
+        >>> annotated_type = nullable_tmpl.annotated()
     """
+
+    base_type: type[Any]
+    metadata: tuple[FieldMeta, ...] = field(default_factory=tuple)
 
     def __init__(
         self,
-        base_type: type | Any,
-        default: Any = Undefined,
-        default_factory: Callable | UndefinedType = Undefined,
-        title: str | UndefinedType = Undefined,
-        description: str | UndefinedType = Undefined,
-        examples: list | UndefinedType = Undefined,
-        exclude: bool | UndefinedType = Undefined,
-        frozen: bool | UndefinedType = Undefined,
-        validator: Callable | UndefinedType = Undefined,
-        validator_kwargs: dict[Any, Any] | UndefinedType = Undefined,
-        alias: str | UndefinedType = Undefined,
-        immutable: bool = False,
-        **pydantic_field_kwargs: Any,
-    ):
-        """Initialize a field template.
+        base_type: type[Any],
+        metadata: tuple[FieldMeta, ...] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize FieldTemplate with optional metadata and kwargs.
 
         Args:
-            base_type: The base type for the field (can be Annotated)
-            default: Default value for the field
-            default_factory: Factory function for default value
-            title: Title for the field
-            description: Description for the field
-            examples: Examples for the field
-            exclude: Whether to exclude the field from serialization
-            frozen: Whether the field is frozen
-            validator: Validator function for the field
-            validator_kwargs: Keyword arguments for the validator
-            alias: Alias for the field
-            immutable: Whether the field is immutable
-            **pydantic_field_kwargs: Additional Pydantic FieldInfo arguments
+            base_type: The base Python type for this field
+            metadata: Tuple of metadata to attach via Annotated
+            **kwargs: Additional metadata as keyword arguments that will be converted to FieldMeta
         """
-        self.base_type = base_type
-        self.default = default
-        self.default_factory = default_factory
-        self.title = title
-        self.description = description
-        self.examples = examples
-        self.exclude = exclude
-        self.frozen = frozen
-        self.validator = validator
-        self.validator_kwargs = validator_kwargs
-        self.alias = alias
-        self.immutable = immutable
-        self.pydantic_field_kwargs = pydantic_field_kwargs
+        # Convert kwargs to FieldMeta objects
+        meta_list = list(metadata) if metadata else []
 
-        # Extract Pydantic FieldInfo from Annotated type if present
-        self._extract_pydantic_info()
+        # Handle special kwargs that trigger method calls
+        if "nullable" in kwargs and kwargs["nullable"]:
+            # Add nullable marker
+            meta_list.append(FieldMeta("nullable", True))
+            kwargs.pop("nullable")
+        if "listable" in kwargs and kwargs["listable"]:
+            # Change base type to list
+            base_type = list[base_type]  # type: ignore
+            meta_list.append(FieldMeta("listable", True))
+            kwargs.pop("listable")
 
-        # Cache for base field info (without overrides)
-        self._base_field_info_cache: FieldInfo | None = None
+        # Convert remaining kwargs to FieldMeta
+        for key, value in kwargs.items():
+            meta_list.append(FieldMeta(key, value))
 
-    def _extract_pydantic_info(self) -> None:
-        """Extract Pydantic FieldInfo from Annotated base_type."""
-        self._extracted_type = self.base_type
-        self._extracted_field_info = None
+        # Use object.__setattr__ to set frozen dataclass fields
+        object.__setattr__(self, "base_type", base_type)
+        object.__setattr__(self, "metadata", tuple(meta_list))
 
-        # For constrained types (constr, conint, etc.), we should NOT extract
-        # We need to preserve the full Annotated type with constraints
-        if get_origin(self.base_type) is Annotated:
-            args = get_args(self.base_type)
+        # Manually call __post_init__ since we have a custom __init__
+        self.__post_init__()
 
-            # Check if this has constraint annotations (StringConstraints, Interval, etc.)
-            has_constraints = False
-            for arg in args[1:]:
-                arg_str = str(arg)
-                if any(
-                    constraint in arg_str
-                    for constraint in ["StringConstraints", "Interval", "Constraints"]
-                ):
-                    has_constraints = True
-                    break
+    def __post_init__(self) -> None:
+        """Validate metadata limit after initialization."""
+        if len(self.metadata) > METADATA_LIMIT:
+            import warnings
 
-            if has_constraints:
-                # This is a constrained type from constr/conint/etc
-                # Keep the full Annotated type
-                return
-
-            # Otherwise extract normally
-            self._extracted_type = args[0]
-
-            # Look for FieldInfo in the annotations
-            for arg in args[1:]:
-                if isinstance(arg, FieldInfo):
-                    self._extracted_field_info = arg
-                    break
-
-    def _get_base_field_info(self) -> dict[str, Any]:
-        """Get base field info parameters with caching.
-
-        This method caches the expensive operation of extracting and merging
-        base parameters from extracted FieldInfo and template settings.
-
-        Returns:
-            Dictionary of base field parameters
-        """
-        if hasattr(self, "_base_params_cache"):
-            return self._base_params_cache.copy()
-
-        base_params = {}
-        if self._extracted_field_info:
-            # Extract relevant attributes from existing FieldInfo
-            for attr in [
-                "default",
-                "default_factory",
-                "title",
-                "description",
-                "examples",
-                "exclude",
-                "frozen",
-                "alias",
-            ]:
-                value = getattr(self._extracted_field_info, attr, Undefined)
-                if value is not Undefined:
-                    base_params[attr] = value
-
-        # Override with template-level settings
-        template_params = {
-            "default": self.default,
-            "default_factory": self.default_factory,
-            "title": self.title,
-            "description": self.description,
-            "examples": self.examples,
-            "exclude": self.exclude,
-            "frozen": self.frozen,
-            "alias": self.alias,
-            **self.pydantic_field_kwargs,
-        }
-
-        # Filter out Undefined values
-        template_params = {
-            k: v for k, v in template_params.items() if v is not Undefined
-        }
-        base_params.update(template_params)
-
-        # Cache the result
-        self._base_params_cache = base_params.copy()
-        return base_params
-
-    def _merge_field_info(self, **overrides: Any) -> FieldInfo:
-        """Merge FieldInfo from various sources.
-
-        This internal method combines field information from:
-        1. Extracted FieldInfo from Annotated types
-        2. Template-level settings
-        3. Runtime overrides
-
-        The precedence order is: overrides > template settings > extracted FieldInfo
-
-        Args:
-            **overrides: Keyword arguments that override template settings
-
-        Returns:
-            A Pydantic FieldInfo instance with merged settings
-        """
-        # Get base parameters (with caching)
-        base_params = self._get_base_field_info()
-
-        # Apply overrides
-        base_params.update(overrides)
-
-        # Create new FieldInfo
-        return PydanticField(**base_params)
-
-    def create_field(self, name: str, **overrides: Any) -> Field:
-        """Create a Field instance with the given name.
-
-        This method creates a new Field instance using the template's configuration
-        combined with any overrides provided. The resulting Field can be used in
-        pydapter's create_model function.
-
-        Args:
-            name: The name for the field. Must be a valid Python identifier.
-            **overrides: Keyword arguments to override template settings.
-                Supported overrides include all Field constructor parameters
-                like default, description, title, validator, etc.
-
-        Returns:
-            A Field instance configured with the template settings and overrides.
-
-        Raises:
-            ValueError: If the field name is not a valid Python identifier.
-            TypeError: If there are conflicts between template settings and overrides.
-            RuntimeError: If attempting to override a frozen field property.
-
-        Examples:
-            >>> template = FieldTemplate(base_type=str, description="A string field")
-            >>> field = template.create_field("username", title="User Name")
-            >>> # field will have description from template and title from override
-        """
-        # Validate field name
-        if not name.isidentifier():
-            raise ValueError(
-                f"Field name '{name}' is not a valid Python identifier. "
-                f"Field names must start with a letter or underscore and contain "
-                f"only letters, numbers, and underscores."
+            warnings.warn(
+                f"FieldTemplate has {len(self.metadata)} metadata items, "
+                f"exceeding recommended limit of {METADATA_LIMIT}. "
+                "Consider simplifying the field definition.",
+                stacklevel=3,  # Show user's call site, not __post_init__
             )
 
-        # Check for frozen field overrides
-        if self.frozen and "frozen" in overrides and overrides["frozen"] is False:
-            raise RuntimeError(
-                f"Cannot override frozen=True on field '{name}'. "
-                f"Frozen fields cannot be made mutable at runtime."
-            )
-
-        # Validate that both default and default_factory are not provided
-        effective_default = overrides.get("default", self.default)
-        effective_default_factory = overrides.get(
-            "default_factory", self.default_factory
-        )
-
-        if (
-            effective_default is not Undefined
-            and effective_default_factory is not Undefined
-        ):
-            raise ValueError(
-                f"Field '{name}' cannot have both 'default' and 'default_factory'. "
-                f"Please provide only one."
-            )
-        # Merge pydapter-specific kwargs
-        pydapter_kwargs = {
-            "validator": self.validator,
-            "validator_kwargs": self.validator_kwargs,
-            "immutable": self.immutable,
-        }
-
-        # Extract pydapter-specific overrides
-        pydapter_overrides = {}
-        pydantic_overrides = {}
-
-        for key, value in overrides.items():
-            if key in ["validator", "validator_kwargs", "immutable"]:
-                pydapter_overrides[key] = value
-            else:
-                pydantic_overrides[key] = value
-
-        # Update pydapter kwargs
-        for key, value in pydapter_overrides.items():
-            if value is not Undefined:
-                pydapter_kwargs[key] = value
-
-        # Get merged FieldInfo
-        field_info = self._merge_field_info(**pydantic_overrides)
-
-        # Create the final annotation
-        # If we have a constrained type (where _extracted_type == base_type), use it as-is
-        if (
-            self._extracted_type == self.base_type
-            and get_origin(self.base_type) is Annotated
-        ):
-            # This is a constrained type, use as-is
-            final_annotation = self._extracted_type
-        elif self._extracted_field_info or pydantic_overrides:
-            final_annotation = Annotated[self._extracted_type, field_info]
-        else:
-            final_annotation = self._extracted_type
-
-        # Create the Field - handle default vs default_factory properly
-        field_kwargs = {
-            "name": name,
-            "annotation": final_annotation,
-        }
-
-        # Extract field info attributes carefully
-        # Check for PydanticUndefined as well
-        from pydantic_core import PydanticUndefined
-
-        if hasattr(field_info, "default") and field_info.default not in (
-            Undefined,
-            PydanticUndefined,
-        ):
-            field_kwargs["default"] = field_info.default
-        elif hasattr(
-            field_info, "default_factory"
-        ) and field_info.default_factory not in (None, Undefined):
-            field_kwargs["default_factory"] = field_info.default_factory
-
-        # Add other attributes
-        for attr in ["title", "description", "examples", "exclude", "frozen", "alias"]:
-            if hasattr(field_info, attr):
-                value = getattr(field_info, attr)
-                if value is not None:
-                    field_kwargs[attr] = value
-
-        # Add pydapter-specific kwargs
-        field_kwargs.update(pydapter_kwargs)
-
-        # Extract json_schema_extra and pass it to Field's extra_info
-        if hasattr(field_info, "json_schema_extra") and field_info.json_schema_extra:
-            field_kwargs.update(field_info.json_schema_extra)
-
-        return Field(**field_kwargs)
-
-    def copy(self, **kwargs: Any) -> Self:
-        """Create a copy of the template with updated values."""
-        params = {
-            "base_type": self.base_type,
-            "default": self.default,
-            "default_factory": self.default_factory,
-            "title": self.title,
-            "description": self.description,
-            "examples": self.examples,
-            "exclude": self.exclude,
-            "frozen": self.frozen,
-            "validator": self.validator,
-            "validator_kwargs": self.validator_kwargs,
-            "alias": self.alias,
-            "immutable": self.immutable,
-            **self.pydantic_field_kwargs,
-        }
-        params.update(kwargs)
-        return FieldTemplate(**params)
+    # ---- factory helpers -------------------------------------------------- #
 
     def as_nullable(self) -> Self:
-        """Create a nullable version of this template.
-
-        Returns a new FieldTemplate where the base type is modified to accept None
-        values. The default value is set to None and any existing default_factory
-        is removed. If the template has a validator, it's wrapped to handle None values.
+        """Create a new template that allows None values.
 
         Returns:
-            A new FieldTemplate instance that accepts None values
-
-        Examples:
-            >>> int_template = FieldTemplate(base_type=int, default=0)
-            >>> nullable_int = int_template.as_nullable()
-            >>> # nullable_int will have type Union[int, None] with default=None
+            New FieldTemplate with nullable metadata added
         """
-        # Create nullable type
-        nullable_type = Union[self._extracted_type, None]
-        if get_origin(self.base_type) is Annotated:
-            # Preserve annotations but update the base type
-            args = get_args(self.base_type)
-            # For Python 3.10 compatibility, we need to handle this differently
-            if len(args) > 1:
-                # Keep the original Annotated type but with nullable base
-                nullable_type = self.base_type
-            else:
-                nullable_type = Annotated[Union[args[0], None]]
+        # Add nullable marker to metadata
+        new_metadata = (*self.metadata, FieldMeta("nullable", True))
+        return type(self)(self.base_type, new_metadata)
 
-        # Wrap validator to handle None
-        new_validator = Undefined
-        if self.validator is not Undefined:
-            original_validator = self.validator
+    def as_listable(self) -> Self:
+        """Create a new template that wraps the type in a list.
 
-            def nullable_validator(cls, v):
-                if v is None:
-                    return v
-                if callable(original_validator):
-                    return original_validator(cls, v)
-                return v
+        Note: This produces list[T] which is a types.GenericAlias in Python 3.11+,
+        not typing.List. This is intentional for better performance and native support.
 
-            new_validator = nullable_validator
+        Returns:
+            New FieldTemplate with list wrapper
+        """
+        # Change base type to list of current type
+        new_base = list[self.base_type]  # type: ignore
+        # Add listable marker to metadata
+        new_metadata = (*self.metadata, FieldMeta("listable", True))
+        return type(self)(new_base, new_metadata)
 
-        return self.copy(
-            base_type=nullable_type,
-            default=None,
-            default_factory=Undefined,
-            validator=new_validator,
-        )
-
-    def as_listable(self, strict: bool = False) -> Self:
-        """Create a listable version of this template.
-
-        Returns a new FieldTemplate where the base type can accept either a single
-        value or a list of values (flexible mode), or only lists (strict mode).
+    def with_validator(self, f: Callable[[Any], bool]) -> Self:
+        """Add a validator function to this template.
 
         Args:
-            strict: If True, only lists are accepted. If False (default), both
-                single values and lists are accepted.
+            f: Validator function that takes a value and returns bool
 
         Returns:
-            A new FieldTemplate instance that accepts lists
-
-        Examples:
-            >>> str_template = FieldTemplate(base_type=str)
-            >>> # Flexible mode: accepts "value" or ["value1", "value2"]
-            >>> flexible_list = str_template.as_listable(strict=False)
-            >>> # Strict mode: only accepts ["value1", "value2"]
-            >>> strict_list = str_template.as_listable(strict=True)
+            New FieldTemplate with validator added
         """
-        # Create list type
-        if strict:
-            list_type = list[self._extracted_type]
-        else:
-            list_type = Union[list[self._extracted_type], self._extracted_type]
+        # Add validator to metadata
+        new_metadata = (*self.metadata, FieldMeta("validator", f))
+        return type(self)(self.base_type, new_metadata)
 
-        if get_origin(self.base_type) is Annotated:
-            # Preserve annotations but update the base type
-            args = get_args(self.base_type)
-            # For Python 3.10 compatibility
-            if strict:
-                list_type = list[args[0]]
-            else:
-                list_type = Union[list[args[0]], args[0]]
+    def with_description(self, description: str) -> Self:
+        """Add a description to this template.
 
-        # Wrap validator to handle lists
-        new_validator = Undefined
-        if self.validator is not Undefined:
-            original_validator = self.validator
+        Args:
+            description: Human-readable description of the field
 
-            def listable_validator(cls, v):
-                if isinstance(v, list):
-                    if callable(original_validator):
-                        return [original_validator(cls, item) for item in v]
-                    return v
+        Returns:
+            New FieldTemplate with description added
+        """
+        # Remove any existing description
+        filtered_metadata = tuple(m for m in self.metadata if m.key != "description")
+        new_metadata = (*filtered_metadata, FieldMeta("description", description))
+        return type(self)(self.base_type, new_metadata)
+
+    def with_default(self, default: Any) -> Self:
+        """Add a default value to this template.
+
+        Args:
+            default: Default value for the field
+
+        Returns:
+            New FieldTemplate with default added
+        """
+        # Remove any existing default metadata to avoid conflicts
+        filtered_metadata = tuple(m for m in self.metadata if m.key != "default")
+        new_metadata = (*filtered_metadata, FieldMeta("default", default))
+        return type(self)(self.base_type, new_metadata)
+
+    def with_frozen(self, frozen: bool = True) -> Self:
+        """Mark this field as frozen (immutable after creation).
+
+        Args:
+            frozen: Whether the field should be frozen
+
+        Returns:
+            New FieldTemplate with frozen setting
+        """
+        # Remove any existing frozen metadata
+        filtered_metadata = tuple(m for m in self.metadata if m.key != "frozen")
+        new_metadata = (*filtered_metadata, FieldMeta("frozen", frozen))
+        return type(self)(self.base_type, new_metadata)
+
+    def with_alias(self, alias: str) -> Self:
+        """Add an alias to this field.
+
+        Args:
+            alias: Alternative name for the field
+
+        Returns:
+            New FieldTemplate with alias
+        """
+        filtered_metadata = tuple(m for m in self.metadata if m.key != "alias")
+        new_metadata = (*filtered_metadata, FieldMeta("alias", alias))
+        return type(self)(self.base_type, new_metadata)
+
+    def with_title(self, title: str) -> Self:
+        """Add a title to this field.
+
+        Args:
+            title: Human-readable title for the field
+
+        Returns:
+            New FieldTemplate with title
+        """
+        filtered_metadata = tuple(m for m in self.metadata if m.key != "title")
+        new_metadata = (*filtered_metadata, FieldMeta("title", title))
+        return type(self)(self.base_type, new_metadata)
+
+    def with_exclude(self, exclude: bool = True) -> Self:
+        """Mark this field to be excluded from serialization.
+
+        Args:
+            exclude: Whether to exclude the field
+
+        Returns:
+            New FieldTemplate with exclude setting
+        """
+        filtered_metadata = tuple(m for m in self.metadata if m.key != "exclude")
+        new_metadata = (*filtered_metadata, FieldMeta("exclude", exclude))
+        return type(self)(self.base_type, new_metadata)
+
+    def with_metadata(self, key: str, value: Any) -> Self:
+        """Add custom metadata to this field.
+
+        Args:
+            key: Metadata key
+            value: Metadata value
+
+        Returns:
+            New FieldTemplate with custom metadata
+        """
+        # Replace existing metadata with same key
+        filtered_metadata = tuple(m for m in self.metadata if m.key != key)
+        new_metadata = (*filtered_metadata, FieldMeta(key, value))
+        return type(self)(self.base_type, new_metadata)
+
+    def with_json_schema_extra(self, **kwargs: Any) -> Self:
+        """Add JSON schema extra information.
+
+        Args:
+            **kwargs: Key-value pairs for json_schema_extra
+
+        Returns:
+            New FieldTemplate with json_schema_extra
+        """
+        # Get existing json_schema_extra or create new dict
+        existing = self.extract_metadata("json_schema_extra") or {}
+        updated = {**existing, **kwargs}
+
+        filtered_metadata = tuple(
+            m for m in self.metadata if m.key != "json_schema_extra"
+        )
+        new_metadata = (*filtered_metadata, FieldMeta("json_schema_extra", updated))
+        return type(self)(self.base_type, new_metadata)
+
+    def create_field(self) -> Any:
+        """Create a Pydantic FieldInfo object from this template.
+
+        Returns:
+            A Pydantic FieldInfo object with all metadata applied
+        """
+        from pydantic import Field as PydanticField
+
+        # Get valid Pydantic Field parameters (cached)
+        pydantic_field_params = _get_pydantic_field_params()
+
+        # Extract metadata for FieldInfo
+        field_kwargs = {}
+
+        for meta in self.metadata:
+            if meta.key == "default":
+                # Handle callable defaults as default_factory
+                if callable(meta.value):
+                    field_kwargs["default_factory"] = meta.value
                 else:
-                    if strict:
-                        raise ValueError("Expected a list")
-                    if callable(original_validator):
-                        return original_validator(cls, v)
-                    return v
+                    field_kwargs["default"] = meta.value
+            elif meta.key == "validator":
+                # Validators are handled separately in create_model
+                continue
+            elif meta.key in pydantic_field_params:
+                # Pass through standard Pydantic field attributes
+                field_kwargs[meta.key] = meta.value
+            elif meta.key in {"nullable", "listable"}:
+                # These are FieldTemplate markers, don't pass to FieldInfo
+                pass
+            else:
+                # Any other metadata goes in json_schema_extra
+                if "json_schema_extra" not in field_kwargs:
+                    field_kwargs["json_schema_extra"] = {}
+                field_kwargs["json_schema_extra"][meta.key] = meta.value
 
-            new_validator = listable_validator
+        # Handle nullable case - ensure default is set if not already
+        if (
+            self.is_nullable
+            and "default" not in field_kwargs
+            and "default_factory" not in field_kwargs
+        ):
+            field_kwargs["default"] = None
 
-        return self.copy(base_type=list_type, validator=new_validator)
+        return PydanticField(**field_kwargs)
+
+    # ---- materialization -------------------------------------------------- #
+
+    def annotated(self) -> type[Any]:
+        """Materialize this template into an Annotated type.
+
+        This method is cached to ensure repeated calls return the same
+        type object for performance and identity checks. The cache is bounded
+        using LRU eviction to prevent unbounded memory growth.
+
+        Returns:
+            Annotated type with all metadata attached
+        """
+        # Check cache first with thread safety
+        cache_key = (self.base_type, self.metadata)
+
+        with _cache_lock:
+            if cache_key in _annotated_cache:
+                # Move to end to mark as recently used
+                _annotated_cache.move_to_end(cache_key)
+                return _annotated_cache[cache_key]
+
+            # Handle nullable case - wrap in Optional-like union
+            actual_type = self.base_type
+            if any(m.key == "nullable" and m.value for m in self.metadata):
+                # Use union syntax for nullable
+                actual_type = actual_type | None  # type: ignore
+
+            if self.metadata:
+                # Python 3.10 doesn't support unpacking in Annotated, so we need to build it differently
+                # We'll use Annotated.__class_getitem__ to build the type dynamically
+                args = [actual_type] + list(self.metadata)
+                result = Annotated.__class_getitem__(tuple(args))  # type: ignore
+            else:
+                result = actual_type  # type: ignore[misc]
+
+            # Cache the result with LRU eviction
+            _annotated_cache[cache_key] = result  # type: ignore[assignment]
+
+            # Evict oldest if cache is too large (guard against empty cache)
+            while len(_annotated_cache) > _MAX_CACHE_SIZE:
+                try:
+                    _annotated_cache.popitem(last=False)  # Remove oldest
+                except KeyError:
+                    # Cache became empty during race, safe to continue
+                    break
+
+        return result  # type: ignore[return-value]
+
+    def extract_metadata(self, key: str) -> Any:
+        """Extract metadata value by key.
+
+        Args:
+            key: Metadata key to look for
+
+        Returns:
+            Metadata value if found, None otherwise
+        """
+        for m in self.metadata:
+            if m.key == key:
+                return m.value
+        return None
+
+    def has_validator(self) -> bool:
+        """Check if this template has a validator.
+
+        Returns:
+            True if validator exists in metadata
+        """
+        return any(m.key == "validator" for m in self.metadata)
+
+    def is_valid(self, value: Any) -> bool:
+        """Check if a value is valid against all validators in this template.
+
+        Args:
+            value: Value to validate
+
+        Returns:
+            True if all validators pass, False otherwise
+        """
+        for m in self.metadata:
+            if m.key == "validator":
+                validator = m.value
+                if not validator(value):
+                    return False
+        return True
+
+    def validate(self, value: Any, field_name: str | None = None) -> None:
+        """Validate a value against all validators, raising ValidationError on failure.
+
+        Args:
+            value: Value to validate
+            field_name: Optional field name for error context
+
+        Raises:
+            ValidationError: If any validator fails
+        """
+        # Early exit if no validators
+        if not self.has_validator():
+            return
+
+        for i, m in enumerate(self.metadata):
+            if m.key == "validator":
+                validator = m.value
+                if not validator(value):
+                    # Try to get a useful name for the validator
+                    validator_name = getattr(validator, "__name__", f"validator_{i}")
+                    raise ValidationError(
+                        f"Validation failed for {validator_name}",
+                        field_name=field_name,
+                        value=value,
+                        validator_name=validator_name,
+                    )
+
+    @property
+    def is_nullable(self) -> bool:
+        """Check if this field allows None values."""
+        return any(m.key == "nullable" and m.value for m in self.metadata)
+
+    @property
+    def is_listable(self) -> bool:
+        """Check if this field is a list type."""
+        return any(m.key == "listable" and m.value for m in self.metadata)
+
+    @override
+    def __repr__(self) -> str:
+        """String representation of the template."""
+        attrs = []
+        if self.is_nullable:
+            attrs.append("nullable")
+        if self.is_listable:
+            attrs.append("listable")
+        if self.has_validator():
+            attrs.append("validated")
+
+        attr_str = f" [{', '.join(attrs)}]" if attrs else ""
+        return f"FieldTemplate({self.base_type.__name__}{attr_str})"

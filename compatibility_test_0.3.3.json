@@ -1,0 +1,11 @@
+{
+  "version": "0.3.3",
+  "features": {
+    "has_adaptable": true,
+    "has_field": true,
+    "has_fieldtemplate": true,
+    "has_create_model": true,
+    "has_adapters": true
+  },
+  "python_version": "3.10.15 (main, Oct 16 2024, 08:33:15) [Clang 18.1.8 ]"
+}

@@ -49,11 +49,17 @@ from pydapter.fields.protocol_families import (
     ProtocolFieldFamilies,
     create_protocol_model,
 )
+
+# Import new trait families
+from pydapter.fields.trait_families import (
+    TraitFieldFamilies,
+    create_trait_model,
+)
 from pydapter.fields.template import FieldTemplate
+from pydapter.fields.types import Field  # Deprecated - kept for backwards compatibility
 from pydapter.fields.types import (
     ID,
     Embedding,
-    Field,
     Metadata,
     Undefined,
     UndefinedType,
@@ -116,8 +122,10 @@ __all__ = (
     "FieldFamilies",
     "create_field_dict",
     "DomainModelBuilder",
-    "ProtocolFieldFamilies",
-    "create_protocol_model",
+    "ProtocolFieldFamilies",  # Deprecated
+    "create_protocol_model",  # Deprecated
+    "TraitFieldFamilies",
+    "create_trait_model",
     "ValidationPatterns",
     "create_pattern_template",
     "create_range_template",

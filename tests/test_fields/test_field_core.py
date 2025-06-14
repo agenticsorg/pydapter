@@ -13,6 +13,7 @@ from pydapter.fields.dts import DATETIME, validate_datetime
 from pydapter.fields.embedding import EMBEDDING, validate_embedding
 from pydapter.fields.ids import ID_FROZEN, ID_MUTABLE, ID_NULLABLE, validate_uuid
 from pydapter.fields.params import PARAMS, validate_model_to_params
+from pydapter.fields.template import FieldTemplate
 from pydapter.fields.types import Field, Undefined, create_model
 
 # ============================================
@@ -214,31 +215,31 @@ class TestIDFields:
             validate_uuid("invalid", nullable=True)
 
     def test_id_frozen_field(self):
-        """Test ID_FROZEN field properties"""
-        assert ID_FROZEN.name == "id"
-        assert ID_FROZEN.annotation == UUID
-        assert ID_FROZEN.frozen is True
-        assert ID_FROZEN.title == "ID"
-        assert callable(ID_FROZEN.default_factory)
+        """Test ID_FROZEN field template properties"""
+        assert ID_FROZEN.base_type == UUID
+        assert ID_FROZEN.extract_metadata("description") == "Frozen Unique identifier"
+
+        # Check it has a default
+        default_func = ID_FROZEN.extract_metadata("default")
+        assert callable(default_func)
 
         # Should generate new UUIDs
-        uuid1 = ID_FROZEN.default_factory()
-        uuid2 = ID_FROZEN.default_factory()
+        uuid1 = default_func()
+        uuid2 = default_func()
         assert uuid1 != uuid2
         assert isinstance(uuid1, UUID)
 
     def test_id_mutable_field(self):
-        """Test ID_MUTABLE field properties"""
-        assert ID_MUTABLE.name == "id"
-        assert ID_MUTABLE.annotation == UUID
-        assert ID_MUTABLE.frozen is not True
-        assert ID_MUTABLE.title == "ID"
+        """Test ID_MUTABLE field template properties"""
+        assert ID_MUTABLE.base_type == UUID
+        default_func = ID_MUTABLE.extract_metadata("default")
+        assert callable(default_func)
 
     def test_id_nullable_field(self):
-        """Test ID_NULLABLE field properties"""
-        assert ID_NULLABLE.name == "nullable_id"
-        assert ID_NULLABLE.annotation == UUID | None
-        assert ID_NULLABLE.default is None
+        """Test ID_NULLABLE field template properties"""
+        assert ID_NULLABLE.base_type == UUID
+        assert ID_NULLABLE.is_nullable
+        # Nullable fields get default=None automatically when no default is set
 
     @given(st.text())
     def test_uuid_validation_property(self, text):
@@ -290,7 +291,10 @@ class TestDateTimeFields:
     def test_datetime_field_default_factory(self):
         """DATETIME field should generate current UTC time"""
         # Get default value
-        time1 = DATETIME.default_factory()
+        default_func = DATETIME.extract_metadata("default")
+        assert callable(default_func)
+
+        time1 = default_func()
         assert isinstance(time1, datetime)
         assert time1.tzinfo is not None
 
@@ -298,7 +302,7 @@ class TestDateTimeFields:
         import time
 
         time.sleep(0.001)
-        time2 = DATETIME.default_factory()
+        time2 = default_func()
         assert time2 > time1
 
     def test_datetime_serializer(self):
@@ -365,11 +369,11 @@ class TestEmbeddingFields:
             validate_embedding([1.0, "two", 3.0])
 
     def test_embedding_field_properties(self):
-        """Test EMBEDDING field configuration"""
-        assert EMBEDDING.name == "embedding"
-        assert EMBEDDING.annotation == list[float]
-        assert EMBEDDING.title == "Embedding"
-        assert "vector" in EMBEDDING.description.lower()
+        """Test EMBEDDING field template configuration"""
+        assert EMBEDDING.base_type == list[float]
+        desc = EMBEDDING.extract_metadata("description")
+        assert desc is not None
+        assert "vector" in desc.lower()
 
     @given(
         st.lists(
@@ -427,10 +431,10 @@ class TestParamsFields:
             validate_model_to_params(123)
 
     def test_params_field_properties(self):
-        """Test PARAMS field configuration"""
-        assert PARAMS.name == "params"
-        assert PARAMS.annotation is dict
-        assert PARAMS.default_factory is dict
+        """Test PARAMS field template configuration"""
+        assert PARAMS.base_type is dict
+        default_func = PARAMS.extract_metadata("default")
+        assert default_func is dict
 
 
 # ============================================
@@ -542,12 +546,12 @@ class TestPerformance:
         benchmark(copy_many)
 
     def test_model_creation_performance(self, benchmark):
-        """Benchmark dynamic model creation"""
-        fields = [
-            ID_FROZEN.copy(name="id"),
-            Field(name="name", annotation=str),
-            Field(name="value", annotation=float),
-        ]
+        """Benchmark dynamic model creation with FieldTemplate"""
+        fields = {
+            "id": ID_FROZEN,
+            "name": FieldTemplate(str).with_description("Name field"),
+            "value": FieldTemplate(float).with_description("Value field"),
+        }
 
         def create_many():
             for i in range(100):
@@ -568,17 +572,15 @@ class TestFieldIntegration:
     def test_complete_model_workflow(self):
         """Test a complete workflow from fields to model instance"""
         # Define fields for a user model
-        fields = [
-            ID_FROZEN.copy(name="user_id"),
-            Field(
-                name="email",
-                annotation=str,
-                validator=lambda cls, v: v if "@" in v else ValueError("Invalid email"),
+        fields = {
+            "user_id": ID_FROZEN,
+            "email": FieldTemplate(str).with_validator(
+                lambda v: v if "@" in v else ValueError("Invalid email")
             ),
-            DATETIME.copy(name="created_at"),
-            Field(name="metadata", annotation=dict, default_factory=dict),
-            EMBEDDING.copy(name="profile_embedding"),
-        ]
+            "created_at": DATETIME,
+            "metadata": FieldTemplate(dict).with_default(dict),
+            "profile_embedding": EMBEDDING,
+        }
 
         # Create model
         UserModel = create_model("User", fields=fields)

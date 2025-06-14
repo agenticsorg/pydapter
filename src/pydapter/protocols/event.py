@@ -16,9 +16,9 @@ from pydapter.fields import (
     ID_FROZEN,
     PARAMS,
     Embedding,
-    Field,
     create_model,
 )
+from pydapter.fields.template import FieldTemplate
 from pydapter.protocols.base_model import BasePydapterModel
 from pydapter.protocols.cryptographical import CryptographicalMixin
 from pydapter.protocols.embeddable import EmbeddableMixin
@@ -34,27 +34,24 @@ BASE_EVENT_FIELDS = {
     "embedding": EMBEDDING,
     "execution": EXECUTION,
     "request": PARAMS,
-    "content": Field(
-        name="content",
-        annotation=str | dict | JsonValue | None,
-        default=None,
-        title="Content",
+    "content": FieldTemplate(
+        base_type=JsonValue,  # JsonValue can be str, dict, list, etc.
         description="Content of the event",
-    ),
-    "event_type": Field(
-        name="event_type",
-        annotation=str | None,
+        nullable=True,
         default=None,
-        validator=lambda cls, x: x or cls.__name__,
-        title="Event Type",
+    ),
+    "event_type": FieldTemplate(
+        base_type=str,
         description="Type of the event",
-    ),
-    "sha256": Field(
-        name="sha256",
-        annotation=str | None,
+        nullable=True,
         default=None,
-        title="SHA256 Hash",
+        validator=lambda x: x or "Event",
+    ),
+    "sha256": FieldTemplate(
+        base_type=str,
         description="SHA256 hash of the content",
+        nullable=True,
+        default=None,
     ),
 }
 

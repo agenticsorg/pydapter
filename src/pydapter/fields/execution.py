@@ -8,7 +8,7 @@ from pydantic import field_validator
 
 from pydapter.exceptions import ValidationError
 from pydapter.fields.params import validate_model_to_params
-from pydapter.fields.types import Field
+from pydapter.fields.template import FieldTemplate
 
 __all__ = ("EXECUTION",)
 
@@ -50,11 +50,9 @@ class Execution(BaseModel):
             self.response = validate_model_to_params(self.response_obj)
 
 
-EXECUTION = Field(
-    name="execution",
-    annotation=Execution,
-    default_factory=Execution,
-    validator=lambda cls, v: v or Execution(),
-    validator_kwargs={"mode": "before"},
-    immutable=True,
+EXECUTION = FieldTemplate(
+    base_type=Execution,
+    default=Execution,
+    validator=lambda v: v or Execution(),
+    description="Execution state of an event",
 )

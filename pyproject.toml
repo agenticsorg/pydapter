@@ -1,6 +1,6 @@
 [project]
 name            = "pydapter"
-version         = "0.3.2"
+version         = "0.3.3"
 description     = "Tiny trait + adapter toolkit for pydantic models"
 readme          = "README.md"
 requires-python = ">=3.10"

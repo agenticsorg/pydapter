@@ -39,7 +39,7 @@ __all__ = (
 ID_TEMPLATE = FieldTemplate(
     base_type=uuid.UUID,
     description="Unique identifier",
-    default_factory=uuid.uuid4,
+    default=uuid.uuid4,
 )
 
 # String Templates
@@ -87,39 +87,39 @@ PHONE_TEMPLATE = FieldTemplate(
 CREATED_AT_TEMPLATE = FieldTemplate(
     base_type=NaiveDatetime,
     description="Creation timestamp (naive)",
-    default_factory=datetime.utcnow,
-    frozen=True,
+    default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
 )
 
 UPDATED_AT_TEMPLATE = FieldTemplate(
     base_type=NaiveDatetime,
     description="Last update timestamp (naive)",
-    default_factory=datetime.utcnow,
+    default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
 )
 
 DELETED_AT_TEMPLATE = FieldTemplate(
     base_type=NaiveDatetime,
     description="Deletion timestamp (naive)",
-).as_nullable()
+    nullable=True,
+)
 
 # Datetime Templates - Timezone Aware (recommended)
 CREATED_AT_TZ_TEMPLATE = FieldTemplate(
     base_type=AwareDatetime,
     description="Creation timestamp (timezone-aware)",
-    default_factory=lambda: datetime.now(timezone.utc),
-    frozen=True,
+    default=lambda: datetime.now(timezone.utc),
 )
 
 UPDATED_AT_TZ_TEMPLATE = FieldTemplate(
     base_type=AwareDatetime,
     description="Last update timestamp (timezone-aware)",
-    default_factory=lambda: datetime.now(timezone.utc),
+    default=lambda: datetime.now(timezone.utc),
 )
 
 DELETED_AT_TZ_TEMPLATE = FieldTemplate(
     base_type=AwareDatetime,
     description="Deletion timestamp (timezone-aware)",
-).as_nullable()
+    nullable=True,
+)
 
 # Numeric Templates using Pydantic v2 constraints
 POSITIVE_INT_TEMPLATE = FieldTemplate(
@@ -148,7 +148,7 @@ PERCENTAGE_TEMPLATE = FieldTemplate(
 JSON_TEMPLATE = FieldTemplate(
     base_type=dict,
     description="JSON data",
-    default_factory=dict,
+    default=dict,
     json_schema_extra={"db_type": "jsonb"},
 )
 
@@ -156,12 +156,12 @@ JSON_TEMPLATE = FieldTemplate(
 TAGS_TEMPLATE = FieldTemplate(
     base_type=list[str],
     description="List of tags",
-    default_factory=list,
+    default=list,
 )
 
 METADATA_TEMPLATE = FieldTemplate(
     base_type=dict[str, Any],
     description="Metadata dictionary",
-    default_factory=dict,
+    default=dict,
     json_schema_extra={"db_type": "jsonb"},
 )

@@ -92,8 +92,8 @@ class TestDomainModelBuilder:
     def test_custom_family(self):
         """Test adding a custom field family."""
         custom_family = {
-            "custom1": FieldTemplate(base_type=str, default="test"),
-            "custom2": FieldTemplate(base_type=int, default=42),
+            "custom1": FieldTemplate(base_type=str).with_default("test"),
+            "custom2": FieldTemplate(base_type=int).with_default(42),
         }
 
         Model = (
@@ -113,8 +113,8 @@ class TestDomainModelBuilder:
         Model = (
             DomainModelBuilder("Model")
             .with_entity_fields()
-            .add_field("status", FieldTemplate(base_type=str, default="active"))
-            .add_field("priority", FieldTemplate(base_type=int, default=0))
+            .add_field("status", FieldTemplate(base_type=str).with_default("active"))
+            .add_field("priority", FieldTemplate(base_type=int).with_default(0))
             .build()
         )
 
@@ -126,10 +126,10 @@ class TestDomainModelBuilder:
         builder = DomainModelBuilder("Model").with_entity_fields()
 
         # Add a field
-        builder.add_field("custom", FieldTemplate(base_type=str, default="v1"))
+        builder.add_field("custom", FieldTemplate(base_type=str).with_default("v1"))
 
         # Replace it (default behavior)
-        builder.add_field("custom", FieldTemplate(base_type=str, default="v2"))
+        builder.add_field("custom", FieldTemplate(base_type=str).with_default("v2"))
 
         Model = builder.build()
         assert Model.model_fields["custom"].default == "v2"
@@ -180,7 +180,7 @@ class TestDomainModelBuilder:
             DomainModelBuilder("Model")
             .with_entity_fields()
             .add_field(
-                "custom", FieldTemplate(base_type=str, description="Custom field")
+                "custom", FieldTemplate(base_type=str).with_description("Custom field")
             )
         )
 
@@ -220,20 +220,20 @@ class TestDomainModelBuilder:
             .with_entity_fields(timezone_aware=True)
             .with_soft_delete(timezone_aware=True)
             .with_audit_fields()
-            .add_field("name", FieldTemplate(base_type=str, description="Entity name"))
+            .add_field(
+                "name", FieldTemplate(base_type=str).with_description("Entity name")
+            )
             .add_field(
                 "status",
-                FieldTemplate(
-                    base_type=str, default="active", description="Entity status"
-                ),
+                FieldTemplate(base_type=str)
+                .with_default("active")
+                .with_description("Entity status"),
             )
             .add_field(
                 "metadata",
-                FieldTemplate(
-                    base_type=dict,
-                    default_factory=dict,
-                    description="Additional metadata",
-                ),
+                FieldTemplate(base_type=dict)
+                .with_default(dict)
+                .with_description("Additional metadata"),
             )
             .build(from_attributes=True)
         )

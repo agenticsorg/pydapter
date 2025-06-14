@@ -212,11 +212,11 @@ def create_pattern_template(
     # Use constr for pattern validation
     annotated_type = constr(pattern=pattern.pattern)
 
-    return FieldTemplate(
-        base_type=annotated_type,
-        description=description,
-        **kwargs,
-    )
+    # Create template with description and all kwargs
+    template_kwargs = {"description": description}
+    template_kwargs.update(kwargs)
+
+    return FieldTemplate(base_type=annotated_type, **template_kwargs)
 
 
 def create_range_template(
@@ -278,14 +278,15 @@ def create_range_template(
     else:
         raise ValueError("base_type must be int or float")
 
-    return FieldTemplate(
-        base_type=annotated_type,
-        description=description,
-        **kwargs,
-    )
+    # Create template with description and all kwargs
+    template_kwargs = {"description": description}
+    template_kwargs.update(kwargs)
+
+    return FieldTemplate(base_type=annotated_type, **template_kwargs)
 
 
-# Pre-built validation templates
+# Pre-built validation templates are created dynamically
+# to ensure proper handling of the error_message parameter
 VALIDATION_TEMPLATES = {
     "email": create_pattern_template(
         ValidationPatterns.EMAIL,

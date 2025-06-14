@@ -18,6 +18,7 @@ from pydapter.exceptions import (
     QueryError,
     ResourceError,
 )
+from pydapter.exceptions import ValidationError
 from pydapter.exceptions import ValidationError as AdapterValidationError
 
 
@@ -41,10 +42,16 @@ class TestCustomExceptions:
 
     def test_validation_error(self):
         """Test ValidationError."""
-        data = {"id": "not_an_int"}
-        error = AdapterValidationError("Validation failed", data=data)
+        error = ValidationError(
+            "Validation failed",
+            field_name="id",
+            value="not_an_int",
+            validator_name="int_validator",
+        )
         assert "Validation failed" in str(error)
-        assert error.data == data
+        assert error.field_name == "id"
+        assert error.value == "not_an_int"
+        assert error.validator_name == "int_validator"
 
     def test_parse_error(self):
         """Test ParseError."""

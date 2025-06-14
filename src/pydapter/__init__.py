@@ -13,7 +13,18 @@ from .fields import (
     UndefinedType,
     create_model,
 )
-from .protocols import Event, as_event
+
+# Temporary compatibility layer for protocols -> traits migration
+try:
+    from .traits.events import Event, as_event
+except ImportError:
+    # Fallback to protocols if traits not available yet
+    try:
+        from .protocols import Event, as_event
+    except ImportError:
+        # Neither available, will be None
+        Event = None
+        as_event = None
 
 __all__ = (
     "Adaptable",
@@ -33,4 +44,4 @@ __all__ = (
     "as_event",
 )
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"

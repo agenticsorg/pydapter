@@ -1,6 +1,6 @@
 import orjson
 
-from pydapter.fields.types import Field
+from pydapter.fields.template import FieldTemplate
 
 __all__ = (
     "EMBEDDING",
@@ -25,15 +25,14 @@ def validate_embedding(value: list[float] | str | None) -> list[float] | None:
     raise ValueError("Invalid embedding type; must be list or JSON-encoded string.")
 
 
-def embedding_validator(cls, v):
+def embedding_validator(v):
     return validate_embedding(v)
 
 
-EMBEDDING = Field(
-    name="embedding",
-    annotation=list[float],
-    default_factory=list,
-    title="Embedding",
-    description="List of floats representing the embedding vector.",
-    immutable=True,
+EMBEDDING = FieldTemplate(
+    base_type=list[float],
+    default=list,  # Will be treated as default_factory since it's callable
+    description="List of floats representing the embedding vector",
+    validator=embedding_validator,
+    json_schema_extra={"vector_dim": 1536},
 )

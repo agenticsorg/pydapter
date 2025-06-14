@@ -233,8 +233,7 @@ class TestCreatePatternTemplate:
             r"^\d{3}-\d{3}-\d{4}$", description="Phone number"
         )
 
-        field = template.create_field("phone")
-        Model = create_model("Model", fields={"phone": field})
+        Model = create_model("Model", fields={"phone": template})
 
         # Valid
         instance = Model(phone="123-456-7890")
@@ -253,8 +252,7 @@ class TestCreatePatternTemplate:
             error_message="Product code must be 2 uppercase letters followed by 4 digits",
         )
 
-        field = template.create_field("code")
-        Model = create_model("Product", fields={"code": field})
+        Model = create_model("Product", fields={"code": template})
 
         # Valid
         product = Model(code="AB1234")
@@ -270,8 +268,7 @@ class TestCreatePatternTemplate:
             ValidationPatterns.EMAIL, error_message="Please enter a valid email address"
         )
 
-        field = template.create_field("email")
-        Model = create_model("User", fields={"email": field})
+        Model = create_model("User", fields={"email": template})
 
         with pytest.raises(ValidationError) as exc_info:
             Model(email="invalid")
@@ -286,8 +283,8 @@ class TestCreatePatternTemplate:
             r"^[a-z]+$", description="Lowercase word", default="hello", title="Word"
         )
 
-        assert template.default == "hello"
-        assert template.title == "Word"
+        assert template.extract_metadata("default") == "hello"
+        assert template.extract_metadata("title") == "Word"
 
 
 class TestCreateRangeTemplate:
@@ -300,8 +297,7 @@ class TestCreateRangeTemplate:
             int, ge=0, le=150, description="Person's age"
         )
 
-        field = age_template.create_field("age")
-        Model = create_model("Person", fields={"age": field})
+        Model = create_model("Person", fields={"age": age_template})
 
         # Valid
         person = Model(age=25)
@@ -322,8 +318,7 @@ class TestCreateRangeTemplate:
             float, ge=0, le=100, description="Percentage", default=0.0
         )
 
-        field = percentage_template.create_field("percentage")
-        Model = create_model("Progress", fields={"percentage": field})
+        Model = create_model("Progress", fields={"percentage": percentage_template})
 
         # Valid
         progress = Model(percentage=50.5)
@@ -344,8 +339,7 @@ class TestCreateRangeTemplate:
             float, gt=-273.15, description="Temperature in Celsius"
         )
 
-        field = temp_template.create_field("temperature")
-        Model = create_model("Measurement", fields={"temperature": field})
+        Model = create_model("Measurement", fields={"temperature": temp_template})
 
         # Valid
         m1 = Model(temperature=20.0)
@@ -365,8 +359,7 @@ class TestCreateRangeTemplate:
         # Score between 0 (exclusive) and 100 (inclusive)
         score_template = create_range_template(float, gt=0, le=100, description="Score")
 
-        field = score_template.create_field("score")
-        Model = create_model("Result", fields={"score": field})
+        Model = create_model("Result", fields={"score": score_template})
 
         # Valid
         result = Model(score=50.0)
@@ -386,8 +379,8 @@ class TestCreateRangeTemplate:
             int, ge=1, le=10, description="Rating", default=5, title="Star Rating"
         )
 
-        assert template.default == 5
-        assert template.title == "Star Rating"
+        assert template.extract_metadata("default") == 5
+        assert template.extract_metadata("title") == "Star Rating"
 
 
 class TestValidationTemplates:
@@ -418,11 +411,12 @@ class TestValidationTemplates:
         from pydapter.fields.validation_patterns import VALIDATION_TEMPLATES
 
         # Create a model using pre-built templates
-        email_field = VALIDATION_TEMPLATES["email"].create_field("email")
-        slug_field = VALIDATION_TEMPLATES["slug"].create_field("slug")
-
         Model = create_model(
-            "Article", fields={"email": email_field, "slug": slug_field}
+            "Article",
+            fields={
+                "email": VALIDATION_TEMPLATES["email"],
+                "slug": VALIDATION_TEMPLATES["slug"],
+            },
         )
 
         # Valid

@@ -63,16 +63,12 @@ class TestJsonbSupport:
             },
         )
 
-        # Create field from template and check db_type in extra_info
-        data_field = JSON_TEMPLATE.create_field("data")
-        # The db_type should be in extra_info from pydantic_field_kwargs
-        assert hasattr(data_field, "extra_info")
-        # It might also be in the field_info.json_schema_extra
-        field_info = data_field.field_info
-        if hasattr(field_info, "json_schema_extra") and field_info.json_schema_extra:
-            assert field_info.json_schema_extra.get("db_type") == "jsonb"
-        else:
-            assert data_field.extra_info.get("db_type") == "jsonb"
+        # Create field from template and check db_type in json_schema_extra
+        data_field = JSON_TEMPLATE.create_field()
+        # Check json_schema_extra for db_type
+        assert hasattr(data_field, "json_schema_extra")
+        assert data_field.json_schema_extra is not None
+        assert data_field.json_schema_extra.get("db_type") == "jsonb"
 
 
 class TestTimezoneDatetimeSupport:
@@ -125,12 +121,9 @@ class TestPydanticV2Types:
                 },
             )
 
-            # Verify fields use correct Pydantic types
-            email_field = EMAIL_TEMPLATE.create_field("email")
-            assert email_field.annotation == EmailStr
-
-            url_field = URL_TEMPLATE.create_field("website")
-            assert url_field.annotation == HttpUrl
+            # Verify templates use correct Pydantic types
+            assert EMAIL_TEMPLATE.base_type == EmailStr
+            assert URL_TEMPLATE.base_type == HttpUrl
         except ImportError:
             pytest.skip("email-validator not installed")
 

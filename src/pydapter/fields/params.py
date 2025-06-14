@@ -2,7 +2,8 @@ from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
 from pydapter.exceptions import ValidationError
-from pydapter.fields.types import Field, Undefined
+from pydapter.fields.template import FieldTemplate
+from pydapter.fields.types import Undefined
 
 __all__ = (
     "PARAMS",
@@ -23,13 +24,11 @@ def validate_model_to_params(v, /) -> dict:
     )
 
 
-PARAMS = Field(
-    name="params",
-    annotation=dict,
-    default_factory=dict,
-    validator=lambda cls, v: validate_model_to_params(v),
-    validator_kwargs={"mode": "before"},
-    immutable=True,
+PARAMS = FieldTemplate(
+    base_type=dict,
+    default=dict,
+    validator=lambda v: validate_model_to_params(v),
+    description="Parameters dictionary or BaseModel instance",
 )
 
 
@@ -49,19 +48,15 @@ def validate_model_to_type(v, /, nullable: bool = False) -> type | None:
     )
 
 
-PARAM_TYPE = Field(
-    name="param_type",
-    annotation=type,  # Simplified annotation to avoid GenericAlias issues
-    validator=lambda cls, v: validate_model_to_type(v),
-    validator_kwargs={"mode": "before"},
-    immutable=True,
+PARAM_TYPE = FieldTemplate(
+    base_type=type,
+    validator=lambda v: validate_model_to_type(v),
+    description="Pydantic model type",
 )
 
-PARAM_TYPE_NULLABLE = Field(
-    name="param_type_nullable",
-    annotation=type,  # Simplified annotation to avoid UnionType issues
-    default=None,
-    validator=lambda cls, v: validate_model_to_type(v, nullable=True),
-    validator_kwargs={"mode": "before"},
-    immutable=True,
+PARAM_TYPE_NULLABLE = FieldTemplate(
+    base_type=type,
+    nullable=True,
+    validator=lambda v: validate_model_to_type(v, nullable=True),
+    description="Optional Pydantic model type",
 )

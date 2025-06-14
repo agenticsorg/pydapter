@@ -1,6 +1,8 @@
 # AsyncPulsarMemvidAdapter Tutorial
 
-This directory contains a comprehensive tutorial for the AsyncPulsarMemvidAdapter, demonstrating enterprise-scale video memory operations with Apache Pulsar streaming.
+This directory contains a comprehensive tutorial for the
+AsyncPulsarMemvidAdapter, demonstrating enterprise-scale video memory
+operations with Apache Pulsar streaming.
 
 ## Files
 
@@ -12,16 +14,19 @@ This directory contains a comprehensive tutorial for the AsyncPulsarMemvidAdapte
 ## Quick Start
 
 1. **Start Pulsar:**
+
    ```bash
    docker-compose up -d
    ```
 
 2. **Wait for startup (30-60 seconds):**
+
    ```bash
    docker logs pulsar-standalone
    ```
 
 3. **Verify setup:**
+
    ```bash
    python test_notebook.py
    ```
@@ -32,38 +37,44 @@ This directory contains a comprehensive tutorial for the AsyncPulsarMemvidAdapte
 ## Tutorial Contents
 
 ### 1. Enterprise Setup
+
 - Apache Pulsar integration
 - Health checks and connectivity testing
 - Dependency validation
 
 ### 2. Data Models
+
 - Research paper models with rich metadata
 - Search result structures
 - Message formats for Pulsar communication
 
 ### 3. Async Video Memory Creation
+
 - Synchronous encoding for immediate results
 - Asynchronous encoding via Pulsar topics
 - File management and temporary storage
 
 ### 4. Distributed Search Operations
+
 - Semantic search across video memories
 - Multiple query testing
 - Single vs. multiple result handling
 
 ### 5. Production Patterns
+
 - Background worker architecture
 - Message-driven processing
 - Horizontal scaling strategies
 
 ### 6. Monitoring & Error Handling
+
 - Health monitoring
 - Robust error handling patterns
 - Production deployment considerations
 
 ## Architecture
 
-```
+```text
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │   API       │    │   Pulsar    │    │  Workers    │
 │  Service    │───▶│   Topics    │───▶│   Pool      │
@@ -102,12 +113,14 @@ This directory contains a comprehensive tutorial for the AsyncPulsarMemvidAdapte
 ## Troubleshooting
 
 If Pulsar fails to start:
+
 1. Check Docker is running
 2. Ensure ports 6650 and 8080 are available
 3. Wait for health check to pass (up to 2 minutes)
 4. Check logs: `docker logs pulsar-standalone`
 
 For import errors:
+
 1. Install memvid dependencies if needed
 2. Tutorial works in demo mode without full dependencies
 3. All basic pydapter functionality is demonstrated
@@ -115,6 +128,7 @@ For import errors:
 ## Cleanup
 
 Stop Pulsar when done:
+
 ```bash
 docker-compose down
 ```

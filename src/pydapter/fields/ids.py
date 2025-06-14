@@ -1,9 +1,8 @@
 import contextlib
-from typing import Union
 from uuid import UUID, uuid4
 
 from pydapter.exceptions import ValidationError
-from pydapter.fields.types import Field
+from pydapter.fields.template import FieldTemplate
 
 __all__ = (
     "ID_FROZEN",
@@ -28,38 +27,32 @@ def serialize_uuid(v: UUID, /) -> str:
     return str(v)
 
 
-def uuid_validator(cls, v) -> UUID | None:
+def uuid_validator(v) -> UUID | None:
     return validate_uuid(v)
 
 
-def nullable_uuid_validator(cls, v) -> UUID | None:
+def nullable_uuid_validator(v) -> UUID | None:
     return validate_uuid(v, nullable=True)
 
 
-ID_FROZEN = Field(
-    name="id",
-    annotation=UUID,
-    default_factory=uuid4,
-    frozen=True,
-    title="ID",
+ID_FROZEN = FieldTemplate(
+    base_type=UUID,
+    default=uuid4,  # Will be treated as default_factory since it's callable
     validator=uuid_validator,
     description="Frozen Unique identifier",
-    immutable=True,
+    frozen=True,
 )
 
-ID_MUTABLE = Field(
-    name="id",
-    annotation=UUID,
-    default_factory=uuid4,
-    title="ID",
-    validator=lambda cls, v: validate_uuid(v),
-    immutable=True,
+ID_MUTABLE = FieldTemplate(
+    base_type=UUID,
+    default=uuid4,  # Will be treated as default_factory since it's callable
+    validator=lambda v: validate_uuid(v),
+    description="Mutable Unique identifier",
 )
 
-ID_NULLABLE = Field(
-    name="nullable_id",
-    annotation=Union[UUID, None],  # Use Union to avoid UnionType issues
-    default=None,
-    validator=lambda cls, v: validate_uuid(v, nullable=True),
-    immutable=True,
+ID_NULLABLE = FieldTemplate(
+    base_type=UUID,
+    nullable=True,
+    validator=lambda v: validate_uuid(v, nullable=True),
+    description="Nullable Unique identifier",
 )
